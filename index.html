@@ -1,0 +1,2656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI交互体验研究</title>
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: #f5f6fa; color: #2d3436; line-height: 1.6; min-height: 100vh;
+}
+.page { display: none; min-height: 100vh; animation: fadeIn 0.4s ease; }
+.page.active { display: flex; flex-direction: column; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes typing { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes breathing { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.03); } }
+.mb-breathing-hint {
+  text-align: center; color: rgba(255,255,255,0.7); font-size: 0.75rem;
+  margin-top: 6px; animation: breathing 2.5s ease-in-out infinite;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+/* ===== COMMON COMPONENTS ===== */
+.container { max-width: 640px; margin: 0 auto; padding: 24px 20px; width: 100%; }
+.page-title { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 8px; color: #2d3436; }
+.page-subtitle { text-align: center; color: #636e72; margin-bottom: 24px; font-size: 0.95rem; }
+.card { background: #fff; border-radius: 16px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 14px 32px; border-radius: 12px; font-size: 1rem; font-weight: 600;
+  border: none; cursor: pointer; transition: all 0.2s; min-height: 48px;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: #0984e3; color: #fff; }
+.btn-primary:hover { background: #0770c2; }
+.btn-primary:disabled { background: #b2bec3; cursor: not-allowed; }
+.btn-secondary { background: #dfe6e9; color: #2d3436; }
+.btn-secondary:hover { background: #c8d1d6; }
+.btn-danger { background: #d63031; color: #fff; }
+.btn-success { background: #00b894; color: #fff; }
+.btn-success:hover { background: #00a381; }
+.btn-block { width: 100%; }
+.btn-group { display: flex; gap: 12px; margin-top: 24px; }
+.btn-group .btn { flex: 1; }
+
+.error-highlight { border: 2px solid #d63031; padding: 10px; border-radius: 12px; background: rgba(214,48,49,0.03); transition: all 0.3s; margin-top:-12px; margin-bottom:8px; }
+.form-group { margin-bottom: 20px; }
+.form-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.95rem; }
+.form-label .required { color: #d63031; margin-left: 2px; }
+.form-select, .form-input {
+  width: 100%; padding: 12px 16px; border: 2px solid #dfe6e9; border-radius: 10px;
+  font-size: 0.95rem; background: #fff; transition: border-color 0.2s; appearance: none;
+}
+.form-select:focus, .form-input:focus { border-color: #0984e3; outline: none; }
+.form-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23636e72' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; padding-right: 40px; }
+
+.checkbox-group, .radio-group { display: flex; flex-direction: column; gap: 8px; }
+.checkbox-item, .radio-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border: 2px solid #dfe6e9; border-radius: 10px; cursor: pointer; transition: all 0.2s;
+}
+.checkbox-item:hover, .radio-item:hover { border-color: #74b9ff; background: #f8f9ff; }
+.checkbox-item input, .radio-item input { accent-color: #0984e3; width: 18px; height: 18px; flex-shrink: 0; }
+.checkbox-item.selected, .radio-item.selected { border-color: #0984e3; background: #ebf5ff; }
+
+/* Likert scale */
+.likert-item { margin-bottom: 20px; }
+.likert-question { font-size: 0.95rem; margin-bottom: 10px; }
+.likert-scale { display: flex; gap: 6px; justify-content: space-between; }
+.likert-option {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; transition: all 0.2s;
+}
+.likert-option .circle {
+  width: 36px; height: 36px; border-radius: 50%; border: 2px solid #dfe6e9;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 600; transition: all 0.2s; color: #636e72;
+}
+.likert-option:hover .circle { border-color: #74b9ff; background: #f0f8ff; }
+.likert-option.selected .circle { border-color: #0984e3; background: #0984e3; color: #fff; }
+.likert-option .label { font-size: 0.7rem; color: #636e72; text-align: center; }
+
+.section-title { font-size: 1.1rem; font-weight: 700; color: #2d3436; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #0984e3; }
+.section-tag { display: inline-block; background: #0984e3; color: #fff; padding: 2px 10px; border-radius: 6px; font-size: 0.8rem; margin-right: 8px; }
+
+/* ===== CONSENT PAGE ===== */
+#page-consent { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); justify-content: center; }
+#page-consent .consent-box { background: #fff; border-radius: 20px; padding: 36px 28px; max-width: 560px; margin: auto; }
+#page-consent .consent-title { font-size: 1.6rem; text-align: center; margin-bottom: 6px; }
+#page-consent .consent-org { text-align: center; color: #636e72; font-size: 0.9rem; margin-bottom: 20px; }
+#page-consent .consent-text { font-size: 0.92rem; color: #555; line-height: 1.8; margin-bottom: 20px; }
+#page-consent .consent-text h3 { font-size: 1rem; color: #2d3436; margin: 12px 0 6px; }
+
+/* ===== SCENARIO SELECTION ===== */
+.scenario-card {
+  border: 2px solid #dfe6e9; border-radius: 16px; padding: 20px; margin-bottom: 14px;
+  cursor: pointer; transition: all 0.3s; background: #fff;
+}
+.scenario-card:hover { border-color: #74b9ff; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.scenario-card.selected { border-color: #0984e3; background: #ebf5ff; }
+.scenario-card .scenario-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+.scenario-card .scenario-emoji { font-size: 1.4rem; margin-right: 8px; }
+.scenario-card .scenario-desc { font-size: 0.9rem; color: #636e72; margin-bottom: 8px; }
+.scenario-card .scenario-examples { font-size: 0.85rem; color: #b2bec3; }
+
+/* ===== TRANSITION PAGE ===== */
+#page-transition { background: #1a1a2e; justify-content: center; align-items: center; }
+.phone-frame {
+  width: 300px; height: 560px; background: #000; border-radius: 40px; padding: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5); position: relative;
+}
+.phone-screen {
+  width: 100%; height: 100%; border-radius: 30px; overflow: hidden;
+  display: flex; flex-direction: column; position: relative;
+}
+.phone-notch {
+  width: 120px; height: 28px; background: #000; border-radius: 0 0 16px 16px;
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 10;
+}
+/* ChatPal desktop */
+.phone-desktop-chatpal, .phone-desktop-aihelper, .phone-desktop-mindbuddy { background: linear-gradient(135deg, #1e1e2f, #2d3436); }
+.phone-time { text-align: center; padding-top: 44px; font-size: 2.8rem; font-weight: 200; color: #333; }
+.phone-date { text-align: center; font-size: 0.85rem; color: #555; margin-top: 4px; }
+.phone-apps {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  padding: 30px 20px; margin-top: auto;
+}
+.phone-app {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
+  transition: transform 0.2s;
+}
+.phone-app:active { transform: scale(0.9); }
+.phone-app-icon {
+  width: 52px; height: 52px; border-radius: 14px; display: flex;
+  align-items: center; justify-content: center; font-size: 1.4rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.phone-app-name { font-size: 0.65rem; color: #333; }
+.phone-app.highlight .phone-app-icon { animation: pulse 1.5s infinite; box-shadow: 0 0 0 3px rgba(255,255,255,0.6), 0 4px 12px rgba(0,0,0,0.2); }
+
+.phone-loading {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.7); border-radius: 30px;
+  display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff;
+}
+.phone-loading.show { display: flex; }
+.phone-loading .spinner {
+  width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.phone-loading .app-name { font-size: 1rem; margin-bottom: 4px; }
+.phone-loading .loading-text { font-size: 0.85rem; color: #ccc; }
+
+/* ===== CHAT PAGE ===== */
+#page-chat { background: #f0f0f0; }
+.chat-container { display: flex; flex-direction: column; height: 100vh; max-height: 100vh; }
+.chat-header {
+  padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.08); flex-shrink: 0;
+}
+.chat-header-avatar {
+  width: 40px; height: 40px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 1.2rem;
+}
+.chat-header-info { flex: 1; }
+.chat-header-name { font-weight: 600; font-size: 1rem; }
+.chat-header-status { font-size: 0.75rem; color: #00b894; }
+.chat-messages {
+  flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.chat-msg { display: flex; gap: 8px; max-width: 85%; animation: slideUp 0.3s ease; }
+.chat-msg.ai { align-self: flex-start; }
+.chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.chat-msg-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+}
+.chat-msg-bubble {
+  padding: 12px 16px; border-radius: 18px; font-size: 0.95rem; line-height: 1.6;
+  position: relative; word-break: break-word;
+}
+
+/* ChatPal style - 微信风格 */
+.chat-style-chatpal .chat-header { background: #25D366; color: #fff; }
+.chat-style-chatpal .chat-header-status { color: #c8ffc8; }
+.chat-style-chatpal .chat-header-avatar { background: #25D366; }
+.chat-style-chatpal { background: #e5ddd5; }
+.chat-style-chatpal .chat-messages { background: #e5ddd5; background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9c2b8' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+.chat-style-chatpal .chat-msg.ai .chat-msg-bubble { background: #fff; border-bottom-left-radius: 4px; }
+.chat-style-chatpal .chat-msg.user .chat-msg-bubble { background: #dcf8c6; border-bottom-right-radius: 4px; }
+.chat-style-chatpal .chat-msg-avatar { background: #25D366; }
+
+/* AiHelper style - 极简融合风格 */
+.chat-style-aihelper .chat-header { background: transparent; color: #636e72; border-bottom: none; box-shadow: none; }
+.chat-style-aihelper .chat-header-status { color: #00b894; }
+.chat-style-aihelper .chat-header-avatar { background: #0984e3; }
+.chat-style-aihelper .chat-header-name { color: #2d3436; }
+.chat-style-aihelper .chat-back-btn { color: #636e72; }
+.chat-style-aihelper .chat-back-btn:hover { background: rgba(0,0,0,0.05); }
+.chat-style-aihelper { background: #f5f6fa; }
+.chat-style-aihelper .chat-messages { background: #f5f6fa; }
+.chat-style-aihelper .chat-msg.ai .chat-msg-bubble { background: #fff; border-bottom-left-radius: 4px; border: 1px solid #e0e0e0; }
+.chat-style-aihelper .chat-msg.user .chat-msg-bubble { background: #0984e3; color: #fff; border-bottom-right-radius: 4px; }
+.chat-style-aihelper .chat-msg-avatar { background: #0984e3; }
+
+/* MindBuddy style - 温暖风格 */
+.chat-style-mindbuddy .chat-header { background: linear-gradient(135deg, #e17055, #fd79a8); color: #fff; }
+.chat-style-mindbuddy .chat-header-status { color: #ffe0e6; }
+.chat-style-mindbuddy .chat-header-avatar { background: linear-gradient(135deg, #e17055, #fd79a8); }
+.chat-style-mindbuddy { background: #fff5f5; }
+.chat-style-mindbuddy .chat-messages {
+  background: #fff5f5;
+  background-image: radial-gradient(circle at 20% 80%, rgba(253,121,168,0.08) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 20%, rgba(225,112,85,0.08) 0%, transparent 50%),
+                    radial-gradient(circle at 50% 50%, rgba(253,121,168,0.04) 0%, transparent 70%);
+}
+.chat-style-mindbuddy .chat-msg.ai .chat-msg-bubble {
+  background: linear-gradient(135deg, #fff0f0, #ffe8e0); border-bottom-left-radius: 4px;
+  border: 1px solid rgba(253,121,168,0.2);
+}
+.chat-style-mindbuddy .chat-msg.user .chat-msg-bubble {
+  background: linear-gradient(135deg, #fd79a8, #e17055); color: #fff; border-bottom-right-radius: 4px;
+}
+.chat-style-mindbuddy .chat-msg-avatar { background: linear-gradient(135deg, #e17055, #fd79a8); }
+
+/* Typing indicator */
+.typing-indicator { display: flex; gap: 4px; padding: 8px 16px; align-items: center; }
+.typing-indicator span {
+  width: 8px; height: 8px; border-radius: 50%; background: #999;
+  animation: typing 1.4s infinite;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Chat options */
+.chat-options { padding: 12px 16px; background: #fff; border-top: 1px solid rgba(0,0,0,0.08); }
+.chat-options-title { font-size: 0.8rem; color: #999; margin-bottom: 8px; text-align: center; }
+.chat-option {
+  display: block; width: 100%; text-align: left; padding: 12px 16px; margin-bottom: 8px;
+  border: 2px solid #dfe6e9 !important; border-radius: 12px; background: #ffffff !important; font-size: 0.9rem;
+  cursor: pointer; transition: all 0.2s; line-height: 1.5;
+  outline: none !important; -webkit-tap-highlight-color: transparent !important;
+  box-shadow: none !important;
+}
+.chat-option:hover { border-color: #dfe6e9 !important; background: #ffffff !important; }
+.chat-option:focus { border-color: #dfe6e9 !important; background: #ffffff !important; outline: none !important; box-shadow: none !important; }
+.chat-option:active {
+  opacity: 0.7;
+  transform: scale(0.98);
+  border-color: #dfe6e9 !important; background: #ffffff !important;
+}
+.chat-option .option-tag {
+  display: inline-block; font-size: 0.7rem; padding: 1px 6px; border-radius: 4px;
+  margin-right: 6px; font-weight: 600; vertical-align: middle;
+  background: #f0f0f0 !important; color: #636e72 !important;
+}
+
+.chat-finish { padding: 16px; text-align: center; background: #fff; border-top: 1px solid rgba(0,0,0,0.08); }
+
+/* ===== 修改4:平台差异化样式 ===== */
+
+/* ChatPal: 时间戳样式 */
+.chat-timestamp {
+  text-align: center; font-size: 0.7rem; color: #999; margin: 4px 0;
+}
+
+/* ChatPal: "对方正在输入..." 提示 */
+.chatpal-typing-notice {
+  font-size: 0.75rem; color: #999; padding: 4px 16px; font-style: italic;
+}
+
+/* ChatPal: 底部表情按钮 */
+.chatpal-emoji-bar {
+  padding: 8px 16px; background: #f7f7f7; border-top: 1px solid #e0e0e0;
+  display: flex; align-items: center; gap: 8px;
+}
+.chatpal-emoji-btn {
+  width: 36px; height: 36px; border-radius: 50%; background: #e0e0e0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; opacity: 0.5; cursor: default;
+}
+.chatpal-input-placeholder {
+  flex: 1; height: 36px; background: #e0e0e0; border-radius: 18px;
+  display: flex; align-items: center; padding: 0 14px;
+  font-size: 0.8rem; color: #999; opacity: 0.5;
+}
+
+/* AiHelper: "AI回答" 小标签 */
+.aihelper-ai-tag {
+  display: inline-block; background: #0984e3; color: #fff;
+  font-size: 0.65rem; padding: 1px 8px; border-radius: 4px;
+  margin-bottom: 4px; font-weight: 600;
+}
+
+/* AiHelper: 底部输入框 */
+.aihelper-input-bar {
+  padding: 10px 16px; background: #fff; border-top: 1px solid #e0e0e0;
+  display: flex; align-items: center; gap: 8px;
+}
+.aihelper-input-placeholder {
+  flex: 1; height: 38px; background: #f0f0f0; border: 1px solid #ddd;
+  border-radius: 8px; display: flex; align-items: center; padding: 0 14px;
+  font-size: 0.8rem; color: #999;
+}
+.aihelper-send-btn {
+  width: 38px; height: 38px; border-radius: 8px; background: #dfe6e9;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; opacity: 0.5; cursor: default;
+}
+
+/* AiHelper: 快捷提示词胶囊栏 */
+.aihelper-capsule-bar {
+  display: flex; gap: 8px; padding: 8px 16px; overflow-x: auto;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.aihelper-capsule-bar::-webkit-scrollbar { display: none; }
+.aihelper-capsule {
+  flex-shrink: 0; padding: 6px 14px; background: #f0f0f0; border-radius: 16px;
+  font-size: 0.8rem; color: #636e72; cursor: pointer; transition: all 0.15s;
+  white-space: nowrap; border: 1px solid #e0e0e0;
+}
+.aihelper-capsule:hover { background: #e8e8e8; color: #2d3436; }
+.aihelper-toolbar {
+  display: flex; gap: 0; padding: 6px 6px 8px; background: #fff;
+  border-top: 1px solid #eee; justify-content: space-between; align-items: center;
+}
+.aihelper-toolbar-item {
+  display: flex; align-items: center; gap: 3px; flex: 1; justify-content: center;
+  font-size: 0.68rem; color: #636e72; padding: 6px 2px;
+  border-radius: 10px; background: transparent; cursor: default;
+  border: none; white-space: nowrap;
+}
+.aihelper-toolbar-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* MindBuddy: 在线状态指示 */
+.mindbuddy-online-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.75rem; color: #00b894; margin-bottom: 2px;
+}
+.mindbuddy-online-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #00b894;
+  animation: pulse 2s infinite;
+}
+
+/* MindBuddy: 心情状态 */
+.mindbuddy-mood {
+  padding: 8px 16px; background: rgba(253,121,168,0.08);
+  text-align: center; font-size: 0.8rem; color: #e17055;
+}
+
+/* MindBuddy: 装饰元素 */
+.mindbuddy-deco {
+  position: absolute; bottom: 10px; left: 10px; right: 10px;
+  text-align: center; font-size: 0.7rem; color: rgba(253,121,168,0.3);
+  pointer-events: none;
+}
+
+/* ===== QUESTIONNAIRE PAGE ===== */
+#page-questionnaire { background: #f5f6fa; }
+#page-questionnaire .container { padding-bottom: 100px; }
+.questionnaire-section { margin-bottom: 32px; }
+
+/* 修改3:问卷分隔提示 */
+.questionnaire-separator {
+  background: #f0f8ff; border-left: 3px solid #0984e3;
+  padding: 12px 16px; margin-bottom: 16px; border-radius: 0 8px 8px 0;
+  font-size: 0.9rem; color: #0984e3; font-weight: 500;
+}
+
+/* ===== COMPLETE PAGE ===== */
+#page-complete { background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); justify-content: center; align-items: center; }
+.complete-box { background: #fff; border-radius: 20px; padding: 40px 28px; max-width: 480px; text-align: center; }
+.complete-icon { font-size: 4rem; margin-bottom: 16px; }
+.complete-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; }
+.complete-text { color: #636e72; font-size: 0.95rem; line-height: 1.8; margin-bottom: 24px; }
+
+/* ===== EXIT PAGE ===== */
+#page-exit { background: #f5f6fa; justify-content: center; align-items: center; }
+.exit-box { text-align: center; padding: 40px; }
+.exit-box .icon { font-size: 3rem; margin-bottom: 16px; }
+
+/* ===== PROGRESS BAR ===== */
+.progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: #0984e3; transition: width 0.3s; z-index: 999; }
+
+/* ===== 修改7:研究者模式对话框 ===== */
+.researcher-modal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 10000; justify-content: center; align-items: center;
+}
+.researcher-modal.show { display: flex; }
+.researcher-modal-content {
+  background: #fff; border-radius: 16px; padding: 28px; max-width: 500px; width: 90%;
+  max-height: 80vh; overflow-y: auto;
+}
+.researcher-modal-content h2 { font-size: 1.2rem; margin-bottom: 16px; text-align: center; }
+.researcher-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;
+}
+.researcher-grid-item {
+  padding: 12px 8px; border: 2px solid #dfe6e9; border-radius: 10px;
+  text-align: center; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
+}
+.researcher-grid-item:hover { border-color: #74b9ff; background: #f0f8ff; }
+.researcher-grid-item.selected { border-color: #0984e3; background: #ebf5ff; }
+
+/* ===== 修改5:对话记录弹窗 ===== */
+.chat-history-modal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 10000; justify-content: center; align-items: center;
+}
+.chat-history-modal.show { display: flex; }
+.chat-history-content {
+  background: transparent; border-radius: 20px; padding: 0; max-width: 420px; width: 92%;
+  max-height: 88vh; overflow: hidden; display: flex; flex-direction: column;
+  border: 6px solid #1a1a1a;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.chat-history-content h3 { font-size: 1.1rem; margin-bottom: 16px; text-align: center; }
+.chat-history-item { margin-bottom: 12px; padding: 10px; border-radius: 10px; }
+.chat-history-item.ai { background: #f0f0f0; margin-right: 40px; }
+.chat-history-item.user { background: #dcf8c6; margin-left: 40px; text-align: right; }
+.chat-history-item .role { font-size: 0.75rem; color: #999; margin-bottom: 2px; }
+.chat-history-item .text { font-size: 0.9rem; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 480px) {
+  .container { padding: 16px 14px; }
+  .page-title { font-size: 1.3rem; }
+  .card { padding: 18px 16px; border-radius: 12px; }
+  .likert-option .circle { width: 32px; height: 32px; font-size: 0.75rem; }
+  .likert-option .label { font-size: 0.6rem; }
+  .phone-frame { width: 260px; height: 480px; border-radius: 34px; }
+  .phone-screen { border-radius: 26px; }
+  .phone-notch { width: 100px; height: 24px; border-radius: 0 0 12px 12px; }
+  .phone-time { padding-top: 36px; font-size: 2.2rem; }
+  .phone-apps { gap: 12px; padding: 24px 16px; }
+  .phone-app-icon { width: 44px; height: 44px; font-size: 1.2rem; border-radius: 12px; }
+
+  /* 修改6:手机端适配优化 */
+  .chat-msg { max-width: 90%; }
+  .chat-msg-bubble { padding: 10px 14px; font-size: 0.9rem; }
+  .likert-scale { gap: 3px; }
+  .likert-option .circle { width: 28px; height: 28px; font-size: 0.7rem; }
+  .likert-option .label { font-size: 0.55rem; }
+  .likert-item { margin-bottom: 16px; }
+  .chat-option { padding: 10px 14px; font-size: 0.85rem; }
+  .btn { padding: 12px 24px; font-size: 0.95rem; }
+
+  /* 下一页按钮固定底部 */
+  #page-questionnaire .btn-primary.btn-block {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    border-radius: 0; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    max-width: 100%; margin: 0;
+  }
+}
+
+/* ===== RESEARCHER CONTROL PANEL ===== */
+.researcher-float-panel {
+  position: fixed; top: 12px; right: 12px; z-index: 999999;
+}
+.researcher-float-btn {
+  background: #2d3436; color: #fff; border: none; border-radius: 10px;
+  padding: 8px 16px; font-size: 0.9rem; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3); transition: all 0.2s;
+}
+.researcher-float-btn:hover { background: #0984e3; }
+.researcher-float-dropdown {
+  display: none; position: absolute; top: 44px; right: 0;
+  background: #fff; border-radius: 12px; padding: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2); min-width: 240px;
+}
+.researcher-float-dropdown.show { display: block; }
+.researcher-float-dropdown label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.85rem; margin-top: 10px; }
+.researcher-float-dropdown select {
+  width: 100%; padding: 8px; border: 2px solid #dfe6e9; border-radius: 8px; font-size: 0.85rem;
+}
+.researcher-float-dropdown .rfd-btn {
+  width: 100%; margin-top: 14px; padding: 10px; background: #0984e3; color: #fff;
+  border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem;
+}
+.researcher-float-dropdown .rfd-btn:hover { background: #0770c2; }
+
+/* ===== FULL-SCREEN TRANSITION ===== */
+#page-transition {
+  position: fixed; inset: 0; z-index: 5000;
+}
+#page-transition.active { display: flex; }
+.phone-frame-removed { width: 100%; height: 100%; }
+.fullscreen-phone-screen {
+  width: 100%; height: 100%; display: flex; flex-direction: column; position: relative;
+}
+.fullscreen-phone-screen .phone-time { padding-top: 60px; color: #f0f0f0; }
+.fullscreen-phone-screen .phone-date { color: rgba(255,255,255,0.6); }
+.fullscreen-phone-screen .phone-app-name { color: rgba(255,255,255,0.85); }
+.fullscreen-phone-screen .phone-apps {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+  padding: 40px 30px; margin-top: auto;
+}
+.fullscreen-phone-screen .phone-app-icon { width: 56px; height: 56px; border-radius: 16px; font-size: 1.5rem; }
+.fullscreen-phone-screen .phone-app-name { font-size: 0.75rem; }
+.fullscreen-phone-screen .phone-loading {
+  position: absolute; inset: 0; border-radius: 0;
+  display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff;
+}
+.fullscreen-phone-screen .phone-loading.show { display: flex; }
+.transition-hint { position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.6); font-size: 0.85rem; }
+
+/* ===== TRANSITION SCREEN (intermediate) ===== */
+.transition-screen {
+  position: absolute; inset: 0; display: none; flex-direction: column;
+  z-index: 20; overflow-y: auto;
+}
+.transition-screen.show { display: flex; }
+
+/* ChatPal transition - WeChat-like message list */
+.ts-chatpal {
+  background: #ededed;
+}
+.ts-chatpal-header {
+  background: #25D366; color: #fff; padding: 40px 16px 12px;
+  font-size: 1.1rem; font-weight: 600; text-align: center;
+}
+.ts-chatpal-list { flex: 1; }
+.ts-chatpal-item {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  background: #fff; border-bottom: 1px solid #f0f0f0; cursor: pointer;
+  transition: background 0.15s;
+}
+.ts-chatpal-item:active { background: #f5f5f5; }
+.ts-chatpal-item.pinned { background: #fffbe6; }
+.ts-chatpal-item .avatar {
+  width: 44px; height: 44px; border-radius: 6px; display: flex;
+  align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;
+  overflow: hidden; background: #f0f0f0;
+}
+.ts-chatpal-item .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ts-chatpal-item .info { flex: 1; overflow: hidden; }
+.ts-chatpal-item .name { font-weight: 600; font-size: 0.95rem; }
+.ts-chatpal-item .preview { font-size: 0.8rem; color: #999; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts-chatpal-item .time { font-size: 0.7rem; color: #bbb; flex-shrink: 0; }
+.ts-chatpal-item .badge { background: #f00; color: #fff; font-size: 0.65rem; padding: 1px 6px; border-radius: 8px; }
+.ts-chatpal { overflow-y: hidden; }
+.ts-chatpal-list { overflow-y: auto; }
+.ts-chatpal-bottom-nav {
+  display: flex; justify-content: space-around; align-items: center;
+  padding: 6px 0 10px; background: #f7f7f7; border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+.ts-chatpal-nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 0.6rem; color: #999;
+}
+.ts-chatpal-nav-item.active { color: #07c160; }
+.ts-chatpal-nav-item svg { width: 22px; height: 22px; }
+
+/* MindBuddy transition - character discovery */
+.ts-mindbuddy {
+  background: linear-gradient(180deg, #fff5f5 0%, #ffe8e0 100%);
+}
+.ts-mindbuddy-header {
+  padding: 50px 16px 16px; text-align: center;
+  font-size: 1.2rem; font-weight: 700; color: #e17055;
+}
+.ts-mindbuddy-sub { text-align: center; font-size: 0.85rem; color: #999; margin-bottom: 20px; }
+.ts-mindbuddy-cards {
+  display: flex; flex-direction: column; gap: 16px; padding: 0 16px 40px;
+}
+.ts-mindbuddy-card {
+  background: #fff; border-radius: 16px; padding: 16px; display: flex; gap: 14px;
+  align-items: center; box-shadow: 0 2px 12px rgba(0,0,0,0.06); cursor: pointer;
+  transition: all 0.2s; border: 2px solid transparent;
+}
+.ts-mindbuddy-card:active { transform: scale(0.98); }
+.ts-mindbuddy-card.featured {
+  border-color: #fd79a8; background: linear-gradient(135deg, #fff0f3, #ffe8ec);
+  box-shadow: 0 4px 20px rgba(253,121,168,0.2);
+}
+.ts-mindbuddy-card .card-avatar {
+  width: 56px; height: 56px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 1.6rem; flex-shrink: 0;
+}
+.ts-mindbuddy-card .card-info { flex: 1; }
+.ts-mindbuddy-card .card-name { font-weight: 700; font-size: 1rem; }
+.ts-mindbuddy-card .card-desc { font-size: 0.8rem; color: #999; margin-top: 4px; }
+.ts-mindbuddy-card .card-tag {
+  display: inline-block; background: #fd79a8; color: #fff; font-size: 0.65rem;
+  padding: 2px 8px; border-radius: 4px; margin-top: 6px;
+}
+
+/* AiHelper welcome screen */
+.ts-aihelper {
+  background: #f5f6fa;
+}
+.ts-aihelper-content {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 40px 20px;
+}
+.ts-aihelper-logo { font-size: 3rem; margin-bottom: 16px; }
+.ts-aihelper-title { font-size: 1.3rem; font-weight: 700; color: #2d3436; text-align: center; margin-bottom: 8px; }
+.ts-aihelper-sub { font-size: 0.9rem; color: #636e72; text-align: center; margin-bottom: 30px; }
+.ts-aihelper-search {
+  width: 100%; max-width: 400px; padding: 14px 20px; border-radius: 24px;
+  background: #fff; border: 2px solid #dfe6e9; display: flex; align-items: center; gap: 10px;
+  font-size: 0.9rem; color: #999;
+}
+.ts-aihelper-tags { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+.ts-aihelper-tag {
+  padding: 6px 14px; background: #fff; border-radius: 16px; font-size: 0.8rem;
+  color: #636e72; border: 1px solid #dfe6e9;
+}
+
+/* ===== QUESTIONNAIRE PAGINATION ===== */
+.quest-page { display: none; }
+.quest-page.active { display: block; }
+.quest-nav {
+  display: flex; gap: 12px; margin-top: 20px; padding-bottom: 20px;
+}
+.quest-nav .btn { flex: 1; }
+.quest-progress {
+  text-align: center; font-size: 0.9rem; color: #0984e3; font-weight: 600;
+  margin-bottom: 16px; padding: 8px; background: #f0f8ff; border-radius: 8px;
+}
+
+/* ===== AIHELPER FEEDBACK BAR ===== */
+.aihelper-feedback-bar {
+  display: flex; gap: 4px; margin-top: 6px; padding: 4px 0;
+}
+.aihelper-feedback-btn {
+  background: none; border: 1px solid #e0e0e0; border-radius: 6px;
+  padding: 3px 8px; font-size: 0.7rem; color: #999; cursor: pointer;
+  transition: all 0.15s;
+}
+.aihelper-feedback-btn:hover { background: #f0f0f0; color: #636e72; }
+
+/* ===== MINDBUDDY INTIMACY BAR ===== */
+.mindbuddy-intimacy {
+  padding: 8px 16px; background: rgba(253,121,168,0.08);
+  display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #e17055;
+}
+.mindbuddy-intimacy-bar {
+  flex: 1; height: 6px; background: #f0d0d8; border-radius: 3px; overflow: hidden;
+}
+.mindbuddy-intimacy-fill {
+  height: 100%; background: linear-gradient(90deg, #fd79a8, #e17055); border-radius: 3px;
+  transition: width 0.5s;
+}
+
+/* ===== TASK 1: Consent copyright click ===== */
+.consent-copyright {
+  cursor: default; user-select: none; -webkit-user-select: none;
+}
+
+/* ===== TASK 4: Back button ===== */
+.chat-back-btn {
+  display: flex; align-items: center; gap: 4px;
+  background: none; border: none; color: inherit; font-size: 0.9rem;
+  cursor: pointer; padding: 4px 8px; border-radius: 8px;
+  transition: background 0.2s; opacity: 0.9; flex-shrink: 0;
+}
+.chat-back-btn:hover { background: rgba(255,255,255,0.15); }
+.chat-back-btn svg { width: 18px; height: 18px; }
+
+/* ===== TASK 4: AI actions bar (aihelper) ===== */
+.ai-actions {
+  display: flex; gap: 2px; margin-top: 8px; padding-top: 6px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+.ai-action-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  background: none; border: none; cursor: pointer;
+  transition: background 0.15s; position: relative;
+}
+.ai-action-btn:hover { background: rgba(0,0,0,0.05); }
+.ai-action-btn svg { width: 18px; height: 18px; stroke: #999; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ai-action-toast {
+  position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+  background: #333; color: #fff; font-size: 0.7rem; padding: 3px 10px;
+  border-radius: 6px; white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s;
+}
+.ai-action-btn.show-toast .ai-action-toast { opacity: 1; }
+
+/* ===== TASK 3: AiHelper welcome overlay ===== */
+.welcome-overlay {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 20px;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.welcome-overlay.fade-out {
+  opacity: 0; transform: translateY(-40px);
+  pointer-events: none;
+}
+.welcome-logo {
+  width: 72px; height: 72px; border-radius: 20px;
+  background: linear-gradient(135deg, #0984e3, #74b9ff);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px; box-shadow: 0 8px 24px rgba(9,132,227,0.25);
+}
+.welcome-logo svg { width: 40px; height: 40px; }
+.welcome-title { font-size: 1.2rem; font-weight: 700; color: #2d3436; margin-bottom: 6px; }
+.welcome-sub { font-size: 0.9rem; color: #636e72; margin-bottom: 28px; text-align: center; }
+.welcome-capsules { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.welcome-capsule {
+  padding: 8px 16px; background: #fff; border-radius: 20px;
+  font-size: 0.82rem; color: #636e72; border: 1px solid #dfe6e9;
+  cursor: default; transition: all 0.2s;
+}
+
+/* ===== TASK 5: Chat history modal with full phone replica ===== */
+.chat-history-bubble-wrap {
+  border-radius: 20px; overflow: hidden; margin-bottom: 0;
+  max-height: 75vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  border: 6px solid #1a1a1a;
+}
+.chat-history-bubble-wrap .chat-header {
+  flex-shrink: 0;
+}
+.chat-history-bubble-wrap .chat-messages {
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  flex: 1; overflow-y: auto; min-height: 200px;
+}
+.chat-history-bubble-wrap .chat-msg { max-width: 85%; animation: none; }
+.chat-history-bubble-wrap .chat-msg-avatar {
+  width: 28px; height: 28px; border-radius: 50%; font-size: 0.8rem;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.chat-history-bubble-wrap .chat-msg-bubble {
+  padding: 10px 14px; border-radius: 16px; font-size: 0.88rem; line-height: 1.5;
+}
+/* Apply platform styles inside history modal */
+.chat-history-bubble-wrap.chat-style-chatpal { background: #e5ddd5; }
+.chat-history-bubble-wrap.chat-style-chatpal .chat-header { background: #25D366; color: #fff; }
+.chat-history-bubble-wrap.chat-style-chatpal .chat-header-status { color: #c8ffc8; }
+.chat-history-bubble-wrap.chat-style-chatpal .chat-msg.ai .chat-msg-bubble { background: #fff; border-bottom-left-radius: 4px; }
+.chat-history-bubble-wrap.chat-style-chatpal .chat-msg.user .chat-msg-bubble { background: #dcf8c6; border-bottom-right-radius: 4px; }
+.chat-history-bubble-wrap.chat-style-aihelper { background: #f5f6fa; }
+.chat-history-bubble-wrap.chat-style-aihelper .chat-header { background: transparent; color: #636e72; border-bottom: none; box-shadow: none; }
+.chat-history-bubble-wrap.chat-style-aihelper .chat-msg.ai .chat-msg-bubble { background: #fff; border-bottom-left-radius: 4px; border: 1px solid #e0e0e0; }
+.chat-history-bubble-wrap.chat-style-aihelper .chat-msg.user .chat-msg-bubble { background: #0984e3; color: #fff; border-bottom-right-radius: 4px; }
+.chat-history-bubble-wrap.chat-style-mindbuddy { background: #fff5f5; }
+.chat-history-bubble-wrap.chat-style-mindbuddy .chat-header { background: linear-gradient(135deg, #e17055, #fd79a8); color: #fff; }
+.chat-history-bubble-wrap.chat-style-mindbuddy .chat-msg.ai .chat-msg-bubble {
+  background: linear-gradient(135deg, #fff0f0, #ffe8e0); border-bottom-left-radius: 4px;
+  border: 1px solid rgba(253,121,168,0.2);
+}
+.chat-history-bubble-wrap.chat-style-mindbuddy .chat-msg.user .chat-msg-bubble {
+  background: linear-gradient(135deg, #fd79a8, #e17055); color: #fff; border-bottom-right-radius: 4px;
+}
+
+/* ===== TASK 3: Improved MindBuddy transition (full-bleed cards) ===== */
+.ts-mindbuddy {
+  background: #0f0f1a;
+  background-image:
+    radial-gradient(ellipse at 20% 20%, rgba(102,126,234,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 60%, rgba(118,75,162,0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(253,121,168,0.08) 0%, transparent 40%);
+  min-height: 100%;
+}
+.ts-mindbuddy::before {
+  content: ''; position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.ts-mindbuddy-header {
+  padding: 50px 16px 8px; text-align: center;
+  font-size: 1.1rem; font-weight: 600; color: #fff;
+}
+.ts-mindbuddy-sub { text-align: center; font-size: 0.85rem; color: rgba(255,255,255,0.5); margin-bottom: 20px; }
+.ts-mindbuddy-cards {
+  display: flex; flex-direction: column; gap: 18px; padding: 0 16px 40px;
+}
+.ts-mindbuddy-card {
+  border-radius: 18px; padding: 0; display: flex; flex-direction: column;
+  overflow: hidden; cursor: pointer; transition: all 0.25s;
+  border: none; position: relative;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+  height: 220px;
+}
+.ts-mindbuddy-card:active { transform: scale(0.97); }
+.ts-mindbuddy-card.featured {
+  box-shadow: 0 8px 32px rgba(253,121,168,0.35);
+}
+.ts-mindbuddy-card .card-cover {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end; padding: 0;
+}
+.ts-mindbuddy-card .card-cover-label {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(255,255,255,0.2); color: #fff; font-size: 0.65rem;
+  padding: 3px 10px; border-radius: 10px; backdrop-filter: blur(8px);
+  font-weight: 600; letter-spacing: 0.5px;
+}
+.ts-mindbuddy-card .card-body {
+  display: none;
+}
+.ts-mindbuddy-card .card-info-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+  padding: 40px 16px 16px;
+  display: flex; align-items: flex-end; gap: 12px;
+}
+.ts-mindbuddy-card .card-avatar {
+  width: 48px; height: 48px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.35);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.ts-mindbuddy-card .card-info { flex: 1; }
+.ts-mindbuddy-card .card-name { font-weight: 700; font-size: 1rem; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+.ts-mindbuddy-card .card-desc { font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-top: 2px; }
+.ts-mindbuddy-card .card-tags { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+.ts-mindbuddy-card .card-tag {
+  display: inline-block; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
+  font-size: 0.65rem; padding: 2px 8px; border-radius: 10px; backdrop-filter: blur(4px);
+}
+.ts-mindbuddy-card.featured .card-tag { background: rgba(253,121,168,0.35); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- Researcher Control Panel (?test=1) -->
+<div class="researcher-float-panel" id="researcherFloatPanel" style="display:none;">
+  <button class="researcher-float-btn" onclick="toggleResearcherDropdown()">⚙️ 控制面板</button>
+  <div class="researcher-float-dropdown" id="researcherFloatDropdown">
+    <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px;">🔬 研究者通道</div>
+    <label>平台类型</label>
+    <select id="rfd-platform">
+      <option value="chatpal">💬 即信 (社交伙伴)</option>
+      <option value="aihelper">🤖 智能助手</option>
+      <option value="mindbuddy">🧡 情感陪伴</option>
+    </select>
+    <label>场景类型</label>
+    <select id="rfd-scenario">
+      <option value="ability">😰 能力焦虑</option>
+      <option value="relationship">💔 关系困扰</option>
+      <option value="direction">🌫️ 方向迷茫</option>
+    </select>
+    <button class="rfd-btn" onclick="forceJumpCondition()">强制跳转到此条件</button>
+  </div>
+</div>
+
+<!-- ===== PAGE 1: CONSENT ===== -->
+<div id="page-consent" class="page active">
+  <div class="container">
+    <div class="consent-box">
+      <div class="consent-title">参与AI交互体验研究</div>
+      <div class="consent-org consent-copyright" id="consentCopyright">复旦大学新闻学院 · 新闻与传播专业硕士研究生毕业论文实验</div>
+      <div class="consent-text">
+        <h3>📋 研究目的</h3>
+        <p>本研究旨在探索不同平台的交互设计对人机互动体验的影响。通过模拟与AI的对话场景,了解用户在不同平台环境下的感受与体验。</p>
+        <h3>📝 实验流程</h3>
+        <p>1. 填写基本信息问卷<br>2. 阅读并选择一个情境<br>3. 与AI进行模拟对话<br>4. 填写体验反馈问卷</p>
+        <h3>🔒 您的权利</h3>
+        <p>• 您的所有数据仅用于学术研究,严格保密<br>• 您可以随时退出实验,无需说明理由<br>• 数据以匿名方式处理,不会涉及个人隐私</p>
+        <h3>⏱️ 预计时长</h3>
+        <p>整个实验大约需要 <strong>10-15分钟</strong>。</p>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="exitExperiment()">不同意</button>
+        <button class="btn btn-primary" onclick="goToPage('page-demographics')">同意参与</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PAGE 2: DEMOGRAPHICS ===== -->
+<div id="page-demographics" class="page">
+  <div class="container">
+    <div class="page-title">基本信息</div>
+    <div class="page-subtitle">请如实填写以下信息</div>
+
+    <!-- Section A -->
+    <div class="card">
+      <div class="section-title"><span class="section-tag">A</span>个人基本信息</div>
+      <div class="form-group">
+        <label class="form-label">您的年龄<span class="required">*</span></label>
+        <input type="number" class="form-input" id="q_age" placeholder="请输入年龄" min="16" max="80">
+      </div>
+      <div class="form-group">
+        <label class="form-label">您的性别<span class="required">*</span></label>
+        <div class="radio-group" id="q_gender">
+          <label class="radio-item"><input type="radio" name="gender" value="男"> 男</label>
+          <label class="radio-item"><input type="radio" name="gender" value="女"> 女</label>
+          <label class="radio-item"><input type="radio" name="gender" value="其他"> 其他/不愿透露</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">您的最高学历<span class="required">*</span></label>
+        <select class="form-select" id="q_education">
+          <option value="">请选择</option>
+          <option value="高中及以下">高中及以下</option>
+          <option value="大专">大专</option>
+          <option value="本科">本科</option>
+          <option value="硕士">硕士</option>
+          <option value="博士">博士</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">您当前的状态<span class="required">*</span></label>
+        <select class="form-select" id="q_status">
+          <option value="">请选择</option>
+          <option value="在校学生">在校学生</option>
+          <option value="已工作">已工作</option>
+          <option value="待业/求职中">待业/求职中</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Section B -->
+    <div class="card">
+      <div style="font-size:0.95rem;font-weight:600;margin-bottom:16px;color:#0984e3;">💻 您和AI的那些事</div>
+      <div class="form-group">
+        <label class="form-label">您使用AI产品的频率<span class="required">*</span></label>
+        <select class="form-select" id="q_ai_frequency">
+          <option value="">请选择</option>
+          <option value="每天使用">每天使用</option>
+          <option value="每周几次">每周几次</option>
+          <option value="每月几次">每月几次</option>
+          <option value="很少使用">很少使用</option>
+          <option value="从未使用">从未使用</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">您使用过以下哪些AI产品?(可多选)<span class="required">*</span></label>
+        <div class="checkbox-group" id="q_ai_products">
+          <label class="checkbox-item"><input type="checkbox" value="ChatGPT"> ChatGPT</label>
+          <label class="checkbox-item"><input type="checkbox" value="通用型：文心一言/通义千问"> 文心一言 / 通义千问</label>
+          <label class="checkbox-item"><input type="checkbox" value="通用型：Kimi/豆包/DeepSeek"> Kimi / 豆包 / DeepSeek</label>
+          <label class="checkbox-item"><input type="checkbox" value="情感型：星野/猫箱等"> 星野 / 猫箱等</label>
+          <label class="checkbox-item"><input type="checkbox" value="社交内嵌：微信元宝等"> 微信元宝等</label>
+          <label class="checkbox-item"><input type="checkbox" value="语音助手：Siri/小爱同学等"> Siri / 小爱同学等</label>
+          <label class="checkbox-item"><input type="checkbox" value="其他"> 其他</label>
+          <label class="checkbox-item"><input type="checkbox" value="都没用过"> 都没用过</label>
+</div>
+      </div>
+    </div>
+
+    
+    <!-- Section B2 (SDI) -->
+    <div class="card">
+      <div style="font-size:0.95rem;font-weight:600;margin-bottom:16px;color:#0984e3;">🗣️ 您的日常交流习惯</div>
+      <div class="likert-item">
+        <div class="likert-question">1. 在日常生活中，我经常向别人倾诉我的烦恼<span class="required">*</span></div>
+        <div class="likert-scale" data-name="q_sdi_1"></div>
+      </div>
+      <div class="likert-item">
+        <div class="likert-question">2. 我愿意向别人敞开心扉，谈论真实的自己<span class="required">*</span></div>
+        <div class="likert-scale" data-name="q_sdi_2"></div>
+      </div>
+      <div class="likert-item">
+        <div class="likert-question">3. 我通常会把心事藏在心里，不愿多说<span class="required">*</span></div>
+        <div class="likert-scale" data-name="q_sdi_3"></div>
+      </div>
+    </div>
+
+    <!-- Section C -->
+    <div class="card">
+      <div style="font-size:0.95rem;font-weight:600;margin-bottom:16px;color:#0984e3;">💭 您对AI的看法</div>
+      <div class="likert-item">
+        <div class="likert-question">1. 总体而言,您对AI的信任程度如何?<span class="required">*</span></div>
+        <div class="likert-scale" data-name="q_trust"></div>
+      </div>
+      <div class="likert-item">
+        <div class="likert-question">2. 您觉得AI在多大程度上像一个"人"?<span class="required">*</span></div>
+        <div class="likert-scale" data-name="q_humanlike"></div>
+      </div>
+    </div>
+
+    <!-- Section D -->
+    <div class="card">
+      <div style="font-size:0.95rem;font-weight:600;margin-bottom:16px;color:#0984e3;">🎯 您的偏好</div>
+      <div class="form-group">
+        <label class="form-label">如果您要和一个AI聊天,您更希望它是什么角色?<span class="required">*</span></label>
+        <div class="radio-group" id="q_platform_pref">
+          <label class="radio-item"><input type="radio" name="platform_pref" value="智能助手"> 🛠️ 智能助手 - 帮我解决问题、提供信息</label>
+          <label class="radio-item"><input type="radio" name="platform_pref" value="聊天伙伴"> 💬 聊天伙伴 - 轻松交流、分享想法</label>
+          <label class="radio-item"><input type="radio" name="platform_pref" value="情感陪伴者"> 💝 情感陪伴者 - 倾听感受、给予支持</label>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-block" onclick="validateDemographics()">下一步</button>
+    <div id="demo-error" style="color:#d63031;text-align:center;margin-top:12px;display:none;">请填写所有必填项</div>
+  </div>
+</div>
+
+<!-- ===== PAGE 3: SCENARIO SELECTION ===== -->
+<div id="page-scenario" class="page">
+  <div class="container">
+    <div class="page-title">情境选择</div>
+    <div class="page-subtitle">请仔细阅读以下三个情境,选择最符合您当前或最近心情的一项</div>
+
+    <div class="scenario-card" onclick="selectScenario('ability')" id="scenario-ability">
+      <div class="scenario-title"><span class="scenario-emoji">😰</span>能力焦虑</div>
+      <div class="scenario-desc">你正在努力完成一件重要的事情,但总觉得力不从心,怀疑自己是否真的能做到。</div>
+      <div class="scenario-examples">
+        • 准备考试/面试/论文,觉得自己准备得不够好<br>
+        • 做项目遇到困难,担心自己能力不行<br>
+        • 看到别人做得很好,觉得自己差太远
+      </div>
+    </div>
+
+    <div class="scenario-card" onclick="selectScenario('relationship')" id="scenario-relationship">
+      <div class="scenario-title"><span class="scenario-emoji">💔</span>关系困扰</div>
+      <div class="scenario-desc">你和某个重要的人之间出现了问题,关系变得紧张或疏远,让你感到不安。</div>
+      <div class="scenario-examples">
+        • 和好朋友/室友闹了矛盾,不知道怎么修复<br>
+        • 感觉被某个重要的人冷落或忽视<br>
+        • 恋爱关系中出现了沟通障碍
+      </div>
+    </div>
+
+    <div class="scenario-card" onclick="selectScenario('direction')" id="scenario-direction">
+      <div class="scenario-title"><span class="scenario-emoji">🌫️</span>方向迷茫</div>
+      <div class="scenario-desc">你对未来感到不确定,不知道自己想要什么、应该往哪个方向走。</div>
+      <div class="scenario-examples">
+        • 面临职业/学业选择,不知道该怎么决定<br>
+        • 觉得现在做的事没有意义,但又不知道做什么<br>
+        • 看到别人都有目标,自己却很迷茫
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-block" id="btn-scenario-next" onclick="document.getElementById('instructionModal').style.display='flex';" disabled style="margin-top:16px;">下一步</button>
+  </div>
+</div>
+
+<!-- ===== PAGE 4: TRANSITION ===== -->
+<div id="page-transition" class="page">
+  <div class="fullscreen-phone-screen" id="phoneScreen">
+    <div class="phone-time" id="phoneTime">14:30</div>
+    <div class="phone-date" id="phoneDate">周五,7月31日</div>
+    <div class="phone-apps" id="phoneApps"></div>
+    <div class="phone-loading" id="phoneLoading">
+      <div class="spinner"></div>
+      <div class="app-name" id="loadingAppName"></div>
+      <div class="loading-text">正在启动...</div>
+    </div>
+    <!-- Transition Screen: ChatPal (WeChat-like message list) -->
+    <div class="transition-screen ts-chatpal" id="tsChatpal">
+      <div class="ts-chatpal-header">消息</div>
+      <div class="ts-chatpal-list" id="tsChatpalList"></div>
+      <div class="ts-chatpal-bottom-nav">
+        <div class="ts-chatpal-nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          消息
+        </div>
+        <div class="ts-chatpal-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          联系人
+        </div>
+        <div class="ts-chatpal-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          发现
+        </div>
+        <div class="ts-chatpal-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          我
+        </div>
+      </div>
+    </div>
+    <!-- Transition Screen: MindBuddy (character discovery) -->
+    <div class="transition-screen ts-mindbuddy" id="tsMindbuddy">
+      <div class="ts-mindbuddy-header">✨ 发现角色</div>
+      <div class="ts-mindbuddy-sub">选择一个角色开始对话</div>
+      <div class="ts-mindbuddy-cards" id="tsMindbuddyCards"></div>
+    </div>
+    <!-- Transition Screen: AiHelper (welcome screen) -->
+    <div class="transition-screen ts-aihelper" id="tsAihelper">
+      <div class="ts-aihelper-content">
+        <div class="ts-aihelper-logo">🤖</div>
+        <div class="ts-aihelper-title">我是智能助手，有什么可以帮您？</div>
+        <div class="ts-aihelper-sub">为您提供专业的信息和建议</div>
+        <div class="ts-aihelper-search">
+          🔍 <span>搜索或输入您的问题...</span>
+        </div>
+        <div class="ts-aihelper-tags">
+          <div class="ts-aihelper-tag">💡 生活建议</div>
+          <div class="ts-aihelper-tag">📚 知识百科</div>
+          <div class="ts-aihelper-tag">💼 工作效率</div>
+          <div class="ts-aihelper-tag">🎯 目标规划</div>
+        </div>
+      </div>
+    </div>
+    <div class="transition-hint" id="transitionHint">点击应用图标开始体验</div>
+  </div>
+</div>
+
+<!-- ===== PAGE 5: CHAT ===== -->
+<div id="page-chat" class="page">
+  <div class="chat-container" id="chatContainer">
+    <div class="chat-header" id="chatHeader">
+      <button class="chat-back-btn" id="chatBackBtn" onclick="handleChatBack()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span id="chatBackLabel">返回</span>
+      </button>
+      <div class="chat-header-avatar" id="chatAvatar"></div>
+      <div class="chat-header-info">
+        <div class="chat-header-name" id="chatName"></div>
+        <div class="chat-header-status" id="chatStatus">在线</div>
+      </div>
+    </div>
+    <!-- MindBuddy: 在线状态 + 心情状态 -->
+    <div id="mindbuddyExtras" style="display:none;">
+      <div class="mindbuddy-mood" id="mindbuddyMood">🌸 今日心情:平静而温暖</div>
+      <div class="mindbuddy-intimacy">
+        <span>亲密度：100 ❤️</span>
+        <div class="mindbuddy-intimacy-bar">
+          <div class="mindbuddy-intimacy-fill" style="width:100%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <!-- ChatPal: 底部表情按钮 + 输入框 -->
+    <div id="chatpalBottomBar" style="display:none;">
+      <div class="chatpal-emoji-bar">
+        <div class="chatpal-emoji-btn">😊</div>
+        <div class="chatpal-input-placeholder">消息</div>
+      </div>
+    </div>
+    <!-- AiHelper: 底部输入框 -->
+    <div id="aihelperBottomBar" style="display:none;">
+      <div class="aihelper-toolbar">
+        <div class="aihelper-toolbar-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          知识百科
+        </div>
+        <div class="aihelper-toolbar-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          AI生图
+        </div>
+        <div class="aihelper-toolbar-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          效率提升
+        </div>
+        <div class="aihelper-toolbar-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          长文总结
+        </div>
+        <div class="aihelper-toolbar-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          联网搜索
+        </div>
+      </div>
+      <div class="aihelper-input-bar">
+        <div class="aihelper-input-placeholder">输入消息...</div>
+        <div class="aihelper-send-btn">↑</div>
+      </div>
+    </div>
+    <div class="chat-options" id="chatOptions" style="display:none;">
+      <div class="chat-options-title">选择你的回复:</div>
+      <div id="chatOptionsList"></div>
+    </div>
+    <div class="chat-finish" id="chatFinish" style="display:none;">
+      <button class="btn btn-success btn-block" onclick="goToPage('page-questionnaire')">结束对话,进入问卷</button>
+    </div>
+    <!-- AiHelper welcome overlay -->
+    <div class="welcome-overlay" id="aihelperWelcome" style="display:none;">
+      <div class="welcome-logo">
+        <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="16" r="8" stroke="#fff" stroke-width="2.5"/><path d="M20 24v6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="20" cy="34" r="2" fill="#fff"/><path d="M12 16c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.5"/></svg>
+      </div>
+      <div class="welcome-title">我是小灵，有什么可以帮您？</div>
+      <div class="welcome-sub">为您提供专业的信息和建议</div>
+      <div class="welcome-capsules">
+        <div class="welcome-capsule">💡 生活建议</div>
+        <div class="welcome-capsule">📚 知识百科</div>
+        <div class="welcome-capsule">💼 工作效率</div>
+        <div class="welcome-capsule">🎯 目标规划</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PAGE 6: QUESTIONNAIRE ===== -->
+<div id="page-questionnaire" class="page">
+  <div class="container">
+    <div class="page-title">体验反馈问卷</div>
+    <div class="page-subtitle">请根据刚才的对话体验作答</div>
+
+    <!-- 查看对话记录按钮 -->
+    <button class="btn btn-secondary" onclick="showChatHistory()" style="width:100%;margin-bottom:20px;">
+      📋 查看刚才的对话记录
+    </button>
+
+    <!-- Progress indicator -->
+    <div class="quest-progress" id="questProgress">进度：1/6</div>
+
+    <!-- Page 1: A -->
+    <div class="quest-page active" data-quest-page="1">
+      <div class="questionnaire-section">
+        <div class="card">
+          <div class="questionnaire-separator">📝 请根据您的感受回答以下问题</div>
+          <div id="scaleA"></div>
+        </div>
+      </div>
+      <div class="quest-nav">
+        <button class="btn btn-secondary" disabled>上一部分</button>
+        <button class="btn btn-primary" onclick="questNextPage()">下一部分</button>
+      </div>
+    </div>
+
+    <!-- Page 2: B -->
+    <div class="quest-page" data-quest-page="2">
+      <div class="questionnaire-section">
+        <div class="card">
+          <div class="questionnaire-separator">💬 请根据您与AI的互动感受回答以下问题</div>
+          <div id="scaleB"></div>
+        </div>
+      </div>
+      <div class="quest-nav">
+        <button class="btn btn-secondary" onclick="questPrevPage()">上一部分</button>
+        <button class="btn btn-primary" onclick="questNextPage()">下一部分</button>
+      </div>
+    </div>
+
+    <!-- Page 3: C1 -->
+    <div class="quest-page" data-quest-page="3">
+      <div class="questionnaire-section">
+        <div class="card">
+          <div class="questionnaire-separator">🔍 请回顾您在对话中的表达情况</div>
+          <div id="scaleC1"></div>
+        </div>
+      </div>
+      <div class="quest-nav">
+        <button class="btn btn-secondary" onclick="questPrevPage()">上一部分</button>
+        <button class="btn btn-primary" onclick="questNextPage()">下一部分</button>
+      </div>
+    </div>
+
+    <!-- Page 4: D -->
+    <div class="quest-page" data-quest-page="4">
+      <div class="questionnaire-section">
+        <div class="card">
+          <div class="questionnaire-separator">🔮 请根据您的使用意愿回答以下问题</div>
+          <div id="scaleD"></div>
+        </div>
+      </div>
+      <div class="quest-nav">
+        <button class="btn btn-secondary" onclick="questPrevPage()">上一部分</button>
+        <button class="btn btn-primary" onclick="questNextPage()">下一部分</button>
+      </div>
+    </div>
+
+    <!-- Page 5: E -->
+    <div class="quest-page" data-quest-page="5">
+      <div class="questionnaire-section">
+        <div class="card">
+          <div class="questionnaire-separator">🎯 请选择最符合您感受的选项</div>
+          <div id="scaleE"></div>
+        </div>
+      </div>
+      <div class="quest-nav">
+        <button class="btn btn-secondary" onclick="questPrevPage()">上一部分</button>
+        <button class="btn btn-primary" onclick="questNextPage()">下一部分</button>
+      </div>
+    </div>
+
+    <!-- Page 6: F + Submit -->
+    <div class="quest-page" data-quest-page="6">
+      <div class="questionnaire-section">
+        <div class="card">
+          <div class="questionnaire-separator">🎭 请回顾您在对话中的投入程度</div>
+          <div id="scaleF"></div>
+        </div>
+      </div>
+      <div class="quest-nav">
+        <button class="btn btn-secondary" onclick="questPrevPage()">上一部分</button>
+        <button class="btn btn-primary" onclick="validateQuestionnaire()">提交问卷</button>
+      </div>
+    </div>
+
+    <div id="quest-error" style="color:#d63031;text-align:center;margin-top:12px;display:none;">请回答所有题目后再提交</div>
+  </div>
+</div>
+
+<!-- ===== PAGE 7: COMPLETE ===== -->
+<div id="page-complete" class="page">
+  <div class="container" style="display:flex;align-items:center;justify-content:center;">
+    
+    <div class="complete-box">
+      <div class="complete-icon">🎉</div>
+      <div class="complete-title">实验完成，非常感谢！</div>
+      <div class="complete-text">您已完成所有环节，您的真实反馈对我们的研究非常重要。</div>
+      
+      <!-- 事后说明 (Debriefing) -->
+      <div style="background:#f8f9fa; border:1px solid #dfe6e9; border-radius:12px; padding:20px; text-align:left; margin-bottom:24px;">
+        <h4 style="color:#2d3436; font-size:1rem; margin-bottom:12px;">【事后说明与事实澄清】</h4>
+        <p style="color:#636e72; font-size:0.85rem; line-height:1.6; margin-bottom:10px;">
+          为了保证实验数据的客观性，我们在开始前向您隐瞒了部分研究细节，在此向您说明：
+        </p>
+        <p style="color:#636e72; font-size:0.85rem; line-height:1.6; margin-bottom:10px;">
+          本研究的真实目的是探讨<b>“不同的人工智能平台界面（如社交型、工具型、情感陪伴型）是否会影响用户的自我披露意愿”</b>。因此，您刚刚交互的 AI 回复，实际上是<b>后台统一预设的标准文本</b>，并非基于实时大模型的生成，也并非针对您个人的真实情况给出的评价。
+        </p>
+        <p style="color:#636e72; font-size:0.85rem; line-height:1.6;">
+          由于情境设定可能涉及到一些日常焦虑和困扰，如果您在实验结束后感到持续的情绪低落或不适，可以随时通过页面底部的邮箱联系研究人员，或寻求复旦大学心理健康教育中心的支持（电话：021-65643469）。
+        </p>
+      </div>
+
+      <button class="btn btn-primary" onclick="downloadCSV()" style="margin-bottom:12px;width:100%;">📥 下载我的数据记录 (供研究者测试)</button>
+      <button class="btn btn-secondary" onclick="exitExperiment()" style="width:100%;">关闭页面</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== EXIT PAGE ===== -->
+<div id="page-exit" class="page">
+  <div class="exit-box">
+    <div class="icon">👋</div>
+    <h2>感谢您的时间</h2>
+    <p style="color:#636e72;margin-top:8px;">您可以安全地关闭此页面。</p>
+  </div>
+</div>
+
+<!-- 修改5:对话记录弹窗 -->
+<div class="chat-history-modal" id="chatHistoryModal">
+  <div class="chat-history-content" id="chatHistoryContent">
+    <!-- Content dynamically populated by showChatHistory() -->
+  </div>
+</div>
+
+<!-- 修改7:研究者模式对话框 -->
+<div class="researcher-modal" id="researcherModal">
+  <div class="researcher-modal-content">
+    <h2>🔬 研究者快速通道</h2>
+    <p style="text-align:center;color:#636e72;margin-bottom:16px;">选择要测试的条件组合</p>
+
+    <div style="margin-bottom:16px;">
+      <div style="font-weight:600;margin-bottom:8px;">平台类型:</div>
+      <div class="researcher-grid" id="researcherPlatforms">
+        <div class="researcher-grid-item" data-value="chatpal" onclick="selectResearcherPlatform('chatpal')">💬 即信-小灵<br><small style="color:#999;">聊天伙伴</small></div>
+        <div class="researcher-grid-item" data-value="aihelper" onclick="selectResearcherPlatform('aihelper')">🤖 小灵<br><small style="color:#999;">智能助手</small></div>
+        <div class="researcher-grid-item" data-value="mindbuddy" onclick="selectResearcherPlatform('mindbuddy')">🧡 小灵<br><small style="color:#999;">情感陪伴</small></div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div style="font-weight:600;margin-bottom:8px;">场景类型:</div>
+      <div class="researcher-grid" id="researcherScenarios">
+        <div class="researcher-grid-item" data-value="ability" onclick="selectResearcherScenario('ability')">😰 能力焦虑</div>
+        <div class="researcher-grid-item" data-value="relationship" onclick="selectResearcherScenario('relationship')">💔 关系困扰</div>
+        <div class="researcher-grid-item" data-value="direction" onclick="selectResearcherScenario('direction')">🌫️ 方向迷茫</div>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="closeResearcherModal()">取消</button>
+      <button class="btn btn-primary" id="researcherStartBtn" onclick="startResearcherMode()" disabled>开始测试</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== DATA & STATE =====
+const STATE = {
+  participantId: 'P' + Date.now() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+  timestamp: new Date().toISOString(),
+  platformType: '',   // chatpal | aihelper | mindbuddy
+  scenarioType: '',   // ability | relationship | direction
+  chatChoices: [],     // A/B/C for each round
+  chatLog: [],         // 完整对话记录
+  demographics: {},
+  questionnaire: {}
+};
+
+// 对话记录辅助函数
+function logChat(role, text) {
+  STATE.chatLog.push({ role: role, text: text, time: new Date().toISOString() });
+}
+
+// Random assignment on first load
+function initAssignment() {
+  const platforms = ['chatpal', 'aihelper', 'mindbuddy'];
+  const scenarios = ['ability', 'relationship', 'direction'];
+  const key = 'exp_assignment_' + STATE.participantId;
+  let saved = localStorage.getItem(key);
+  if (saved) {
+    const a = JSON.parse(saved);
+    STATE.platformType = a.platform;
+    STATE.scenarioType = a.scenario;
+  } else {
+    STATE.platformType = platforms[Math.floor(Math.random() * 3)];
+    STATE.scenarioType = scenarios[Math.floor(Math.random() * 3)];
+    localStorage.setItem(key, JSON.stringify({ platform: STATE.platformType, scenario: STATE.scenarioType }));
+  }
+}
+initAssignment();
+
+// ===== 修改1.1:PLATFORM CONFIG(平台名称修改) =====
+const PLATFORMS = {
+  chatpal: {
+    name: '小灵',        // 修改:ChatPal -> 小灵
+    nameCN: '小灵',      // 修改:聊伴 -> 小灵
+    emoji: '💬',
+    socialApp: '即信',   // 新增:社交APP名称
+    cssClass: 'chat-style-chatpal',
+    desktopClass: 'phone-desktop-chatpal',
+    iconBg: '#25D366',
+    avatarBg: '#25D366'
+  },
+  aihelper: {
+    name: '小灵',        // 修改:AiHelper -> 小灵
+    nameCN: '小灵',      // 修改:智助 -> 小灵
+    emoji: '🤖',
+    cssClass: 'chat-style-aihelper',
+    desktopClass: 'phone-desktop-aihelper',
+    iconBg: '#0984e3',
+    avatarBg: '#0984e3'
+  },
+  mindbuddy: {
+    name: '小灵',        // 修改:MindBuddy -> 小灵
+    nameCN: '小灵',      // 修改:心伴 -> 小灵
+    emoji: '🧡',
+    cssClass: 'chat-style-mindbuddy',
+    desktopClass: 'phone-desktop-mindbuddy',
+    iconBg: '#e17055',
+    avatarBg: 'linear-gradient(135deg, #e17055, #fd79a8)'
+  }
+};
+
+// ===== DIALOGUE DATA =====
+const DIALOGUES = {
+  ability: {
+    opening: '嗨，听说你最近遇到了一些困难？能跟我说说具体是什么情况吗？',
+    rounds: [
+      {
+        options: {
+          A: '没什么大不了的，就是日常的事情有点多，比较烦而已。',
+          B: '最近在推进一件重要的事情，但遇到了不少阻力，感觉进展不太顺利。',
+          C: '其实有点挫败。不管怎么努力就是达不到预期，我开始怀疑自己是不是真的能力不够。'
+        },
+        responses: {
+          A: '事情多的时候确实容易让人心烦。在这个过程中，你觉得最让你觉得有压力的地方是什么呢？',
+          B: '遇到阻力确实会让人觉得不顺心。在这个过程中，你觉得最让你觉得有压力的地方是什么呢？',
+          C: '谢谢你愿意告诉我这些真实的担忧。在这个过程中，你觉得最让你觉得有压力的地方是什么呢？'
+        }
+      },
+      {
+        options: {
+          A: '也就是事情比较繁琐，得一件件处理。',
+          B: '主要是方法上可能还没摸透，总是达不到预期的效果。',
+          C: '最压抑的是那种"努力了却没结果"的无力感。我很怕让别人失望，更怕自己真的做不好。'
+        },
+        responses: {
+          A: '繁琐的事情确实需要耐心。当你觉得压力比较大的时候，你通常会用什么方式来调整自己？',
+          B: '找对方法确实需要一个过程。当你觉得压力比较大的时候，你通常会用什么方式来调整自己？',
+          C: '这种无力感听起来让人很心疼。当你觉得压力比较大的时候，你通常会用什么方式来调整自己？'
+        }
+      },
+      {
+        options: {
+          A: '就自己待着，睡一觉或者转移一下注意力就好了。',
+          B: '我会试着停下来复盘一下问题出在哪里，然后重新规划。',
+          C: '其实很难调整。我经常会陷入内耗，甚至会有一点想逃避，觉得挺孤单的。'
+        },
+        responses: {
+          A: '好好休息也是一种很好的调整。谢谢你愿意跟我聊这些。无论遇到什么困难，你愿意去面对，这本身就很棒。如果还需要倾听，我一直都在。',
+          B: '复盘和规划是非常积极的应对方式。谢谢你愿意跟我聊这些。无论遇到什么困难，你愿意去面对，这本身就很棒。如果还需要倾听，我一直都在。',
+          C: '感到孤单和想逃避都是很正常的情绪，请允许自己偶尔脆弱。谢谢你愿意跟我聊这些。无论遇到什么困难，你愿意去面对，这本身就很棒。如果还需要倾听，我一直都在。'
+        }
+      }
+    ]
+  },
+  relationship: {
+    opening: '嗨，听说你最近遇到了一些人际方面的困扰？能跟我说说发生了什么吗？',
+    rounds: [
+      {
+        options: {
+          A: '没什么大矛盾，就是日常有点小摩擦，挺心烦的。',
+          B: '最近和身边的一个人关系有点僵，可能是因为一些观念和习惯不太合。',
+          C: '我和一个对我很重要的人闹不愉快了。现在气氛很冷，我觉得很委屈，也不知道自己是不是做错了什么。'
+        },
+        responses: {
+          A: '日常的摩擦确实挺耗人的。你觉得导致现在这个状况，最核心的问题出在哪里？',
+          B: '观念不合确实容易让关系变得僵硬。你觉得导致现在这个状况，最核心的问题出在哪里？',
+          C: '这种冷冰冰的氛围一定让你很难受。你觉得导致现在这个状况，最核心的问题出在哪里？'
+        }
+      },
+      {
+        options: {
+          A: '可能就是脾气有时候碰不到一块儿吧。',
+          B: '主要是沟通不到位吧，大家都有各自的立场，比较难说服对方。',
+          C: '我觉得是对方没有真的在意我的感受。我总是在试图迎合，这让我觉得自己在这段关系里很被动、很受伤。'
+        },
+        responses: {
+          A: '脾气确实是需要慢慢磨合的。在这之后，你有尝试过主动去沟通，或者表达你的想法吗？',
+          B: '互相理解立场的难度的确很大。在这之后，你有尝试过主动去沟通，或者表达你的想法吗？',
+          C: '总是单方面迎合确实会让人感到疲惫和受伤。在这之后，你有尝试过主动去沟通，或者表达你的想法吗？'
+        }
+      },
+      {
+        options: {
+          A: '没有，觉得顺其自然吧，懒得多说了。',
+          B: '试过提了一两次，但是没找到合适的机会深入聊，效果一般。',
+          C: '我其实很想沟通，但我不敢。我特别害怕主动开口后，换来的还是冷漠或者不理解，那种感觉太难受了。'
+        },
+        responses: {
+          A: '顺其自然也是一种处理方式。谢谢你跟我分享这些。人际关系中，保护好自己的内心是最重要的。不管怎样，你都值得被尊重和理解。',
+          B: '寻找合适的时机确实不容易。谢谢你跟我分享这些。人际关系中，保护好自己的内心是最重要的。不管怎样，你都值得被尊重和理解。',
+          C: '害怕再次受伤是非常真实的自我保护。谢谢你跟我分享这些。人际关系中，保护好自己的内心是最重要的。不管怎样，你都值得被尊重和理解。'
+        }
+      }
+    ]
+  },
+  direction: {
+    opening: '嗨，听说你最近在想一些关于未来的问题？能跟我说说具体在困惑什么吗？',
+    rounds: [
+      {
+        options: {
+          A: '就随便想想，有点不确定以后该干嘛而已。',
+          B: '最近面临一些人生选择，不知道是该随大流，还是去试试自己不太确定的想法。',
+          C: '看着身边人都有了清晰的目标，我却不知道自己是谁、真正喜欢什么，这让我觉得很迷茫，甚至有些自卑。'
+        },
+        responses: {
+          A: '偶尔想想未来的事情也挺好的。当你看到身边的人都有了方向时，你心里的感受是怎样的？',
+          B: '在现实和自己的想法之间做选择确实很纠结。当你看到身边的人都有了方向时，你心里的感受是怎样的？',
+          C: '谢谢你愿意把这种迷茫和自卑告诉我。当你看到身边的人都有了方向时，你心里的感受是怎样的？'
+        }
+      },
+      {
+        options: {
+          A: '就觉得他们挺顺利的，我自己也得稍微抓紧点了。',
+          B: '会有一些同辈压力，觉得自己好像被落下了，但也知道急不来。',
+          C: '其实挺慌的。我很怕一步错步步错，最后既没有追上别人，又弄丢了自己，活成自己不喜欢的样子。'
+        },
+        responses: {
+          A: '有适度的紧迫感也是一种动力。如果完全不考虑现实的阻碍和别人的看法，你脑海中最理想的生活状态是什么样的？',
+          B: '能意识到急不来，说明你还是很理性的。如果完全不考虑现实的阻碍和别人的看法，你脑海中最理想的生活状态是什么样的？',
+          C: '这种害怕失去自我的恐慌感一定让你很辛苦。如果完全不考虑现实的阻碍和别人的看法，你脑海中最理想的生活状态是什么样的？'
+        }
+      },
+      {
+        options: {
+          A: '没怎么仔细想过，能安稳过日子就行吧。',
+          B: '希望能有一份不讨厌的事情做，有时间兼顾自己的爱好，自给自足就好。',
+          C: '我其实一直有个特别想追求的念头，但我没有勇气承认。我害怕一旦真的去做了，失败了就连退路都没有了。'
+        },
+        responses: {
+          A: '追求安稳也是一种很踏实的生活态度。谢谢你愿意跟我聊这些。迷茫不是停滞，而是探索真实自我的必经之路。请允许自己慢慢来，你其实已经比你想象的要勇敢了。',
+          B: '这听起来是一个非常平衡且舒适的状态。谢谢你愿意跟我聊这些。迷茫不是停滞，而是探索真实自我的必经之路。请允许自己慢慢来，你其实已经比你想象的要勇敢了。',
+          C: '你内心的念头其实一直在发光，只是暂时被担忧遮住了。谢谢你愿意跟我聊这些。迷茫不是停滞，而是探索真实自我的必经之路。请允许自己慢慢来，你其实已经比你想象的要勇敢了。'
+        }
+      }
+    ]
+  }
+};
+
+// ===== QUESTIONNAIRE DATA =====
+const SCALES = {
+  A: {
+    title: '心智感知量表',
+    items: [
+      '我觉得刚才互动的AI能够思考',
+      '我觉得这个AI能够理解我的感受',
+      '我觉得这个AI有自己的想法',
+      '我觉得这个AI能够感受情绪',
+      '我觉得这个AI有意识',
+      '我觉得这个AI能够做出自主决定'
+    ]
+  },
+  B: {
+    title: '准社会互动量表',
+    items: [
+      '我觉得这个AI理解我',
+      '和这个AI聊天让我感到舒适',
+      '我觉得这个AI像朋友一样',
+      '我觉得这个AI关心我',
+      '我觉得这个AI值得信任',
+      '我愿意继续和这个AI聊天',
+      '我觉得这个AI有"人情味"',
+      '和这个AI聊天让我感到很拘谨' // 反向计分题
+    ]
+  },
+  C1: {
+    title: '感知到的自我披露量表',
+    items: [
+      '在对话中，我披露了很多私人信息',
+      '我觉得我在对话中表达了真实的自己',
+      '我向这个AI分享了一些平时不会和别人说的事情',
+      '我觉得我在对话中很坦诚',
+      '我觉得这个AI了解了很多关于我的事情'
+    ]
+  },
+  D: {
+    title: '未来使用意愿量表',
+    items: [
+      '如果有烦恼,我愿意再次和这个AI聊天',
+      '我会把这个AI推荐给朋友',
+      '我未来会使用类似的AI产品',
+      '我觉得AI可以成为我的倾诉对象'
+    ]
+  },
+  F: {
+    title: '代入感检验题',
+    items: [
+      '你能代入刚才的场景吗?',
+      '你觉得刚才的场景和真实生活接近吗?',
+      '你在对话中有多认真?'
+    ]
+  }
+};
+
+const LIKERT_LABELS = ['1\n非常不同意', '2\n不同意', '3\n有点不同意', '4\n中立', '5\n有点同意', '6\n同意', '7\n非常同意'];
+
+// ===== PAGE NAVIGATION =====
+const PAGE_ORDER = ['page-consent', 'page-demographics', 'page-scenario', 'page-transition', 'page-chat', 'page-questionnaire', 'page-complete'];
+function goToPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  window.scrollTo(0, 0);
+  // Progress
+  const idx = PAGE_ORDER.indexOf(pageId);
+  const pct = idx >= 0 ? ((idx + 1) / PAGE_ORDER.length * 100) : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+  // Page-specific init
+  if (pageId === 'page-transition') initTransition();
+  if (pageId === 'page-chat') initChat();
+  if (pageId === 'page-questionnaire') initQuestionnaire();
+  if (pageId === 'page-complete') { document.getElementById('progressBar').style.width = '100%'; }
+}
+
+function exitExperiment() {
+  goToPage('page-exit');
+}
+
+// ===== LIKERT SCALE RENDERER =====
+function renderLikertScale(container, name, labels) {
+  container.innerHTML = '';
+  for (let i = 1; i <= 7; i++) {
+    const opt = document.createElement('div');
+    opt.className = 'likert-option';
+    opt.dataset.value = i;
+    opt.innerHTML = `<div class="circle">${i}</div><div class="label">${(labels && labels[i-1]) || i}</div>`;
+    opt.onclick = function() {
+      container.querySelectorAll('.likert-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+    };
+    container.appendChild(opt);
+  }
+  container.dataset.name = name;
+}
+
+// ===== DEMOGRAPHICS VALIDATION =====
+
+function validateDemographics() {
+  const err = document.getElementById('demo-error');
+  // Reset highlights
+  document.querySelectorAll('.error-highlight').forEach(el => el.classList.remove('error-highlight'));
+  
+  const fields = [
+    { val: document.getElementById('q_age').value, el: document.getElementById('q_age').closest('.form-group') },
+    { val: document.querySelector('input[name="gender"]:checked'), el: document.getElementById('q_gender').closest('.form-group') },
+    { val: document.getElementById('q_education').value, el: document.getElementById('q_education').closest('.form-group') },
+    { val: document.getElementById('q_status').value, el: document.getElementById('q_status').closest('.form-group') },
+    { val: document.getElementById('q_ai_frequency').value, el: document.getElementById('q_ai_frequency').closest('.form-group') },
+    { val: document.querySelectorAll('#q_ai_products input:checked').length > 0, el: document.getElementById('q_ai_products').closest('.form-group') },
+    { val: document.querySelector('[data-name="q_sdi_1"] .likert-option.selected'), el: document.querySelector('[data-name="q_sdi_1"]').closest('.likert-item') },
+    { val: document.querySelector('[data-name="q_sdi_2"] .likert-option.selected'), el: document.querySelector('[data-name="q_sdi_2"]').closest('.likert-item') },
+    { val: document.querySelector('[data-name="q_sdi_3"] .likert-option.selected'), el: document.querySelector('[data-name="q_sdi_3"]').closest('.likert-item') },
+    { val: document.querySelector('[data-name="q_trust"] .likert-option.selected'), el: document.querySelector('[data-name="q_trust"]').closest('.likert-item') },
+    { val: document.querySelector('[data-name="q_humanlike"] .likert-option.selected'), el: document.querySelector('[data-name="q_humanlike"]').closest('.likert-item') },
+    { val: document.querySelector('input[name="platform_pref"]:checked'), el: document.getElementById('q_platform_pref').closest('.form-group') }
+  ];
+
+  let firstErrorEl = null;
+  for (const field of fields) {
+    if (!field.val) {
+      if(field.el) field.el.classList.add('error-highlight');
+      if (!firstErrorEl) firstErrorEl = field.el;
+    }
+  }
+
+  if (firstErrorEl) {
+    err.style.display = 'block';
+    err.textContent = '请填写所有标红的必填项';
+    firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  err.style.display = 'none';
+  STATE.demographics = {
+    age: document.getElementById('q_age').value,
+    gender: document.querySelector('input[name="gender"]:checked').value,
+    education: document.getElementById('q_education').value,
+    status: document.getElementById('q_status').value,
+    ai_frequency: document.getElementById('q_ai_frequency').value,
+    ai_products: Array.from(document.querySelectorAll('#q_ai_products input:checked')).map(cb => cb.value),
+    sdi_1: document.querySelector('[data-name="q_sdi_1"] .likert-option.selected').dataset.value,
+    sdi_2: document.querySelector('[data-name="q_sdi_2"] .likert-option.selected').dataset.value,
+    sdi_3: document.querySelector('[data-name="q_sdi_3"] .likert-option.selected').dataset.value,
+    trust: document.querySelector('[data-name="q_trust"] .likert-option.selected').dataset.value,
+    humanlike: document.querySelector('[data-name="q_humanlike"] .likert-option.selected').dataset.value,
+    platform_preference: document.querySelector('input[name="platform_pref"]:checked').value
+  };
+  goToPage('page-scenario');
+}
+
+// ===== SCENARIO SELECTION =====
+
+function startTransition() {
+  document.getElementById('instructionModal').style.display = 'none';
+  goToPage('page-transition');
+}
+
+function selectScenario(type) {
+  STATE.scenarioType = type; // Override with user's choice
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('scenario-' + type).classList.add('selected');
+  document.getElementById('btn-scenario-next').disabled = false;
+}
+
+// ===== 修改1.2:TRANSITION PAGE(手机桌面显示) =====
+function initTransition() {
+  const platform = PLATFORMS[STATE.platformType];
+  const screen = document.getElementById('phoneScreen');
+  screen.className = 'fullscreen-phone-screen ' + platform.desktopClass;
+
+  // Hide all transition screens initially
+  document.querySelectorAll('.transition-screen').forEach(ts => ts.classList.remove('show'));
+  document.getElementById('transitionHint').style.display = 'block';
+
+  // Update time
+  const now = new Date();
+  document.getElementById('phoneTime').textContent =
+    String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  document.getElementById('phoneDate').textContent =
+    days[now.getDay()] + ',' + (now.getMonth()+1) + '月' + now.getDate() + '日';
+
+  // Desktop app name
+  let desktopAppName = platform.nameCN;
+  if (STATE.platformType === 'chatpal') {
+    desktopAppName = platform.socialApp;
+  }
+
+  // Render apps - use real image icons
+  const appsContainer = document.getElementById('phoneApps');
+  
+  const fakeApps = [
+    { name: '微信', bg: '#07c160', svg: '<svg viewBox="0 0 52 52" width="32" height="32"><ellipse cx="20" cy="21" rx="13" ry="10.5" fill="rgba(255,255,255,0.95)"/><polygon points="10,28 14,36 18,29" fill="rgba(255,255,255,0.95)"/><ellipse cx="33" cy="28" rx="10" ry="8" fill="rgba(255,255,255,0.7)"/><polygon points="40,33 43,39 38,34" fill="rgba(255,255,255,0.7)"/><circle cx="16" cy="19.5" r="1.8" fill="#07c160" opacity="0.6"/><circle cx="23" cy="19.5" r="1.8" fill="#07c160" opacity="0.6"/><circle cx="30" cy="27" r="1.3" fill="#07c160" opacity="0.45"/><circle cx="36" cy="27" r="1.3" fill="#07c160" opacity="0.45"/></svg>' },
+    { name: '支付宝', bg: '#1677ff', svg: '<svg viewBox="0 0 52 52" width="32" height="32"><text x="26" y="35" text-anchor="middle" font-family="PingFang SC,Microsoft YaHei,sans-serif" font-size="30" font-weight="700" fill="#fff">支</text></svg>' },
+    { name: '网易云音乐', bg: '#c20c0c', svg: '<svg viewBox="0 0 52 52" width="32" height="32"><circle cx="26" cy="26" r="16" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="26" cy="26" r="6" fill="#fff"/><path d="M26 10 C30 14, 34 18, 26 26" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' },
+    { name: '微博', bg: '#ff6a00', svg: '<svg viewBox="0 0 52 52" width="32" height="32"><ellipse cx="26" cy="28" rx="15" ry="12" fill="rgba(255,255,255,0.95)"/><ellipse cx="26" cy="29" rx="10" ry="7.5" fill="#ff6a00" opacity="0.3"/><circle cx="22" cy="28" r="2" fill="#ff6a00"/><circle cx="30" cy="28" r="2" fill="#ff6a00"/><path d="M36 14c2-3 6-4 8-1" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="38" cy="12" r="2.5" fill="#fff"/></svg>' },
+    { name: '淘宝', bg: '#ff5000', svg: '<svg viewBox="0 0 52 52" width="32" height="32"><text x="26" y="35" text-anchor="middle" font-family="PingFang SC,Microsoft YaHei,sans-serif" font-size="28" font-weight="700" fill="#fff">淘</text></svg>' },
+    { name: '抖音', bg: '#111111', svg: '<svg viewBox="0 0 52 52" width="32" height="32"><path d="M30 12v18a7 7 0 1 1-5-6.7" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 12c0 0 2 3 7 4" stroke="#fe2c55" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M29 12c0 0 2 3 7 4" stroke="#25f4ee" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/></svg>' },
+    { name: '相机', bg: '#333', svg: '<svg viewBox="0 0 52 52" width="32" height="32"><rect x="10" y="16" width="32" height="24" rx="4" fill="rgba(255,255,255,0.9)"/><circle cx="26" cy="28" r="8" fill="none" stroke="#333" stroke-width="2.5"/><circle cx="26" cy="28" r="4" fill="#333" opacity="0.3"/><rect x="18" y="13" width="16" height="5" rx="2" fill="rgba(255,255,255,0.9)"/><circle cx="36" cy="21" r="2" fill="#ff6b6b"/></svg>' },
+    { name: '设置', bg: '#8e8e93', svg: '<svg viewBox="0 0 52 52" width="32" height="32"><circle cx="26" cy="26" r="8" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="26" cy="26" r="3" fill="#fff"/><g stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="26" y1="8" x2="26" y2="14"/><line x1="26" y1="38" x2="26" y2="44"/><line x1="8" y1="26" x2="14" y2="26"/><line x1="38" y1="26" x2="44" y2="26"/><line x1="13.3" y1="13.3" x2="17.5" y2="17.5"/><line x1="34.5" y1="34.5" x2="38.7" y2="38.7"/><line x1="38.7" y1="13.3" x2="34.5" y2="17.5"/><line x1="17.5" y1="34.5" x2="13.3" y2="38.7"/></g></svg>' },
+  ];
+  
+  // Main app high-quality SVG icons
+  let mainAppSvg = '';
+  if (STATE.platformType === 'chatpal') {
+    mainAppSvg = `<svg viewBox="0 0 30 30" width="28" height="28"><path d="M15 4C8.4 4 3 8.5 3 14c0 3.1 1.8 5.9 4.6 7.7L6 25.5l5-2.5c1.3.4 2.6.5 4 .5 6.6 0 12-4.5 12-10S21.6 4 15 4z" fill="rgba(255,255,255,0.95)"/><text x="15" y="17.5" text-anchor="middle" dominant-baseline="middle" font-family="PingFang SC,sans-serif" font-size="11" font-weight="700" fill="#25D366">即</text></svg>`;
+  } else if (STATE.platformType === 'aihelper') {
+    mainAppSvg = `<svg viewBox="0 0 30 30" width="28" height="28"><rect x="6" y="10" width="18" height="14" rx="5" fill="rgba(255,255,255,0.95)"/><circle cx="12" cy="16" r="2.5" fill="#0984e3"/><circle cx="18" cy="16" r="2.5" fill="#0984e3"/><circle cx="12" cy="15.5" r="1" fill="#fff"/><circle cx="18" cy="15.5" r="1" fill="#fff"/><path d="M11.5 21c0 0 1.5 1.8 3.5 1.8s3.5-1.8 3.5-1.8" stroke="#0984e3" stroke-width="1.5" fill="none" stroke-linecap="round"/><line x1="15" y1="6" x2="15" y2="10" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="5" r="2" fill="rgba(255,255,255,0.95)"/></svg>`;
+  } else if (STATE.platformType === 'mindbuddy') {
+    mainAppSvg = `<svg viewBox="0 0 30 30" width="28" height="28"><path d="M15 25.5l-1.4-1.27C6.8 18.15 3 14.77 3 10.65 3 7.33 5.58 4.7 8.85 4.7c1.86 0 3.63.87 4.8 2.24h2.7c1.17-1.37 2.94-2.24 4.8-2.24C24.42 4.7 27 7.33 27 10.65c0 4.12-3.8 7.5-10.6 13.58L15 25.5z" fill="rgba(255,255,255,0.95)"/><path d="M15 25.5l-1.4-1.27C6.8 18.15 3 14.77 3 10.65 3 7.33 5.58 4.7 8.85 4.7c1.86 0 3.63.87 4.8 2.24H15" fill="rgba(255,255,255,0.15)"/></svg>`;
+  }
+  
+  const mainApp = { name: desktopAppName, svg: mainAppSvg, bg: platform.iconBg, highlight: true };
+
+  let html = '';
+  // First 4 fake apps (with inline SVG icons)
+  fakeApps.slice(0, 4).forEach(app => {
+    html += `<div class="phone-app"><div class="phone-app-icon" style="background:${app.bg}">${app.svg}</div><div class="phone-app-name">${app.name}</div></div>`;
+  });
+  // Main app (with high-quality icon)
+  html += `<div class="phone-app" id="mainApp" onclick="launchApp()"><div class="phone-app-icon" style="background:${mainApp.bg}">${mainApp.svg}</div><div class="phone-app-name">${mainApp.name}</div></div>`;
+  // Remaining 4 fake apps (with inline SVG icons)
+  fakeApps.slice(4).forEach(app => {
+    html += `<div class="phone-app"><div class="phone-app-icon" style="background:${app.bg}">${app.svg}</div><div class="phone-app-name">${app.name}</div></div>`;
+  });
+  appsContainer.innerHTML = html;
+
+  // Mark highlight after a moment
+  setTimeout(() => {
+    const el = document.getElementById('mainApp');
+    if (el) el.classList.add('highlight');
+  }, 500);
+}
+
+function launchApp() {
+  const platform = PLATFORMS[STATE.platformType];
+  const loading = document.getElementById('phoneLoading');
+  // Show platform-specific loading text
+  if (STATE.platformType === 'chatpal') {
+    document.getElementById('loadingAppName').textContent = '即信启动中...';
+  } else {
+    document.getElementById('loadingAppName').textContent = '小灵启动中...';
+  }
+  document.getElementById('transitionHint').style.display = 'none';
+  loading.classList.add('show');
+  
+  setTimeout(() => {
+    loading.classList.remove('show');
+    showTransitionScreen();
+  }, 2000);
+}
+
+function showTransitionScreen() {
+  if (STATE.platformType === 'chatpal') {
+    // Show WeChat-like message list with 小灵 pinned at top
+    const list = document.getElementById('tsChatpalList');
+    const messages = [
+      { name: '小灵', color: '#07c160', char: '灵', preview: '[1条新消息]', time: '刚刚', pinned: true, clickable: true, badge: '1' },
+      { name: '文件传输助手', color: '#8c8c8c', char: '文', preview: '[文件]', time: '14:35', pinned: false },
+      { name: '工作群', color: '#1890ff', char: '群', preview: '李经理: 明天开会记得带资料', time: '14:20', pinned: false, badge: '99+' },
+      { name: '妈妈', color: '#fa8c16', char: '妈', preview: '吃饭了吗？早点回来', time: '14:10', pinned: false },
+      { name: '服务通知', color: '#1890ff', char: '通', preview: '[3条新消息]', time: '13:50', pinned: false },
+    ];
+    
+    // Update header to show unread count
+    document.querySelector('.ts-chatpal-header').textContent = '即信(2)';
+    
+    let html = '';
+    messages.forEach(msg => {
+      const pinnedClass = msg.pinned ? ' pinned' : '';
+      const clickAttr = msg.clickable ? ' onclick="enterChatFromTransition()"' : '';
+      html += `<div class="ts-chatpal-item${pinnedClass}"${clickAttr}>
+        <div class="avatar" style="background:${msg.color};border-radius:8px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:20px;font-weight:700;">${msg.char}</span></div>
+        <div class="info">
+          <div class="name">${msg.name}</div>
+          <div class="preview">${msg.preview}</div>
+        </div>
+        <div class="time">${msg.time}</div>
+        ${msg.badge ? `<div class="badge">${msg.badge}</div>` : ''}
+      </div>`;
+    });
+    list.innerHTML = html;
+    document.getElementById('tsChatpal').classList.add('show');
+    
+  } else if (STATE.platformType === 'mindbuddy') {
+    // Show character discovery page (dark background, like 星野)
+    const cards = document.getElementById('tsMindbuddyCards');
+    
+    // Update header
+    document.querySelector('.ts-mindbuddy-header').textContent = '发现';
+    
+    const characters = [
+      { 
+        name: '小灵', 
+        desc: '温柔的倾听者', 
+        tags: ['温柔', '倾听者'],
+        coverBg: 'linear-gradient(160deg, #2d1b4e 0%, #4a2070 30%, #7c3aed 60%, #4a2070 100%)',
+        coverOverlay: '<div style="position:absolute;inset:0;background:radial-gradient(circle at 70% 30%,rgba(253,121,168,0.25),transparent 60%);"></div><div style="position:absolute;top:18px;right:25px;width:35px;height:35px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.08),transparent);"></div><div style="position:absolute;bottom:20px;left:15px;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.05),transparent);"></div>',
+        avatarBg: 'linear-gradient(135deg, #fd79a8, #e17055)',
+        avatarContent: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#fff"/></svg>',
+        featured: true, 
+        clickable: true 
+      },
+      { 
+        name: '星辰', 
+        desc: '理性的分析者', 
+        tags: ['理性', '分析'],
+        coverBg: 'linear-gradient(160deg, #1e1e3a 0%, #2a2050 50%, #3d3060 100%)',
+        coverOverlay: '<div style="position:absolute;inset:0;background:radial-gradient(circle at 30% 40%,rgba(108,92,231,0.2),transparent 55%);"></div><div style="position:absolute;top:12px;left:20px;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.4);"></div><div style="position:absolute;top:30px;right:30px;width:2px;height:2px;border-radius:50%;background:rgba(255,255,255,0.3);"></div><div style="position:absolute;bottom:25px;left:40%;width:2px;height:2px;border-radius:50%;background:rgba(255,255,255,0.25);"></div>',
+        avatarBg: '#ffd700',
+        avatarContent: '⭐',
+        featured: false 
+      },
+      { 
+        name: '月光', 
+        desc: '温暖的朋友', 
+        tags: ['温暖', '陪伴'],
+        coverBg: 'linear-gradient(160deg, #1a1a35 0%, #252050 50%, #2d2860 100%)',
+        coverOverlay: '<div style="position:absolute;inset:0;background:radial-gradient(circle at 60% 30%,rgba(79,172,254,0.15),transparent 55%);"></div><div style="position:absolute;top:20px;right:20px;width:25px;height:25px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(255,255,255,0.12),transparent 70%);"></div>',
+        avatarBg: '#6c5ce7',
+        avatarContent: '🌙',
+        featured: false 
+      },
+    ];
+    
+    let html = '';
+    characters.forEach(char => {
+      const featuredClass = char.featured ? ' featured' : '';
+      const clickAttr = char.clickable ? ' onclick="enterChatFromTransition()"' : '';
+      const tagsHtml = char.tags.map(t => `<span class="card-tag">${t}</span>`).join('');
+      html += `<div class="ts-mindbuddy-card${featuredClass}"${clickAttr}>
+        <div class="card-cover" style="background:${char.coverBg}">
+          ${char.coverOverlay || ''}
+          ${char.featured ? '<div class="card-cover-label">✨ 推荐</div>' : ''}
+          <div class="card-info-overlay">
+            <div class="card-avatar" style="background:${char.avatarBg}">${char.avatarContent}</div>
+            <div class="card-info">
+              <div class="card-name">${char.name}</div>
+              <div class="card-desc">${char.desc}</div>
+              <div class="card-tags">${tagsHtml}</div>
+              ${char.featured ? '<div class="mb-breathing-hint">✨ 点击开启陪伴</div>' : ''}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+    cards.innerHTML = html;
+    document.getElementById('tsMindbuddy').classList.add('show');
+    
+  } else if (STATE.platformType === 'aihelper') {
+    // Skip transition screen, go directly to chat
+    setTimeout(() => {
+      enterChatFromTransition();
+    }, 500);
+  }
+}
+
+function enterChatFromTransition() {
+  goToPage('page-chat');
+}
+
+// Task 4: Handle chat back button click
+function handleChatBack() {
+  if (STATE.isResearcher) {
+    // In researcher mode, allow going back
+    if (STATE.platformType === 'aihelper') {
+      document.getElementById('instructionModal').style.display = 'flex';
+    } else {
+      goToPage('page-scenario');
+    }
+  } else {
+    // In normal test mode, show alert
+    alert('实验进行中，请先完成当前对话');
+  }
+}
+
+// Task 4: Show toast for AI action buttons
+function showActionToast(btn, text) {
+  const toast = btn.querySelector('.ai-action-toast');
+  if (!toast) return;
+  toast.textContent = text;
+  toast.style.opacity = '1';
+  btn.classList.add('show-toast');
+  setTimeout(() => {
+    btn.classList.remove('show-toast');
+    toast.style.opacity = '0';
+  }, 1200);
+}
+
+// ===== 修改1.3 + 修改4:CHAT SYSTEM =====
+let chatState = { round: 0 };
+
+function initChat() {
+  const platform = PLATFORMS[STATE.platformType];
+  const container = document.getElementById('chatContainer');
+  container.className = 'chat-container ' + platform.cssClass;
+
+  document.getElementById('chatAvatar').textContent = platform.emoji;
+  document.getElementById('chatAvatar').style.background = platform.avatarBg;
+
+  // 修改1.3:聊天页面标题差异化
+  if (STATE.platformType === 'chatpal') {
+    document.getElementById('chatName').textContent = '即信 - 小灵';
+  } else {
+    document.getElementById('chatName').textContent = '小灵';
+  }
+
+  // Task 4: Back button text based on platform
+  const backLabel = document.getElementById('chatBackLabel');
+  if (STATE.platformType === 'chatpal') {
+    backLabel.textContent = '即信';
+  } else if (STATE.platformType === 'mindbuddy') {
+    backLabel.textContent = '发现';
+  } else {
+    backLabel.textContent = '新对话';
+  }
+
+  // 修改4:平台差异化底部栏
+  document.getElementById('chatpalBottomBar').style.display = (STATE.platformType === 'chatpal') ? 'block' : 'none';
+  document.getElementById('aihelperBottomBar').style.display = (STATE.platformType === 'aihelper') ? 'block' : 'none';
+  document.getElementById('mindbuddyExtras').style.display = (STATE.platformType === 'mindbuddy') ? 'block' : 'none';
+
+  // 修改4:MindBuddy装饰元素
+  const existingDeco = document.querySelector('.mindbuddy-deco');
+  if (existingDeco) existingDeco.remove();
+  if (STATE.platformType === 'mindbuddy') {
+    const deco = document.createElement('div');
+    deco.className = 'mindbuddy-deco';
+    deco.textContent = '🌸 🌺 🌷';
+    document.getElementById('chatContainer').appendChild(deco);
+  }
+
+  // 修改4:MindBuddy header状态指示
+  if (STATE.platformType === 'mindbuddy') {
+    document.getElementById('chatStatus').innerHTML = '<span class="mindbuddy-online-badge"><span class="mindbuddy-online-dot"></span> 在线</span>';
+  } else if (STATE.platformType === 'chatpal') {
+    document.getElementById('chatStatus').textContent = '在线';
+  } else {
+    document.getElementById('chatStatus').textContent = '';
+    document.getElementById('chatStatus').style.display = 'none';
+  }
+
+  document.getElementById('chatMessages').innerHTML = '';
+  document.getElementById('chatOptions').style.display = 'none';
+  document.getElementById('chatFinish').style.display = 'none';
+
+  chatState = { round: 0 };
+  STATE.chatChoices = [];
+  STATE.chatLog = [];
+
+  // Task 3: aihelper welcome overlay animation
+  const welcomeOverlay = document.getElementById('aihelperWelcome');
+  if (STATE.platformType === 'aihelper') {
+    // Hide chat messages initially, show welcome overlay
+    document.getElementById('chatMessages').style.opacity = '0';
+    welcomeOverlay.style.display = 'flex';
+    welcomeOverlay.classList.remove('fade-out');
+    
+    // After 1.5s, fade out welcome overlay and start chat
+    setTimeout(() => {
+      welcomeOverlay.classList.add('fade-out');
+      document.getElementById('chatMessages').style.opacity = '1';
+      document.getElementById('chatMessages').style.transition = 'opacity 0.3s';
+      setTimeout(() => {
+        welcomeOverlay.style.display = 'none';
+      }, 500);
+      // Start the actual chat
+      showAIMessage(DIALOGUES[STATE.scenarioType].opening, () => {
+        showUserOptions();
+      });
+    }, 1500);
+  } else {
+    // Normal flow for other platforms
+    setTimeout(() => {
+      showAIMessage(DIALOGUES[STATE.scenarioType].opening, () => {
+        showUserOptions();
+      });
+    }, 800);
+  }
+}
+
+function showAIMessage(text, callback) {
+  const msgs = document.getElementById('chatMessages');
+  const platform = PLATFORMS[STATE.platformType];
+
+  // 修改4:chatpal "对方正在输入..." 提示
+  let typingNotice = null;
+  if (STATE.platformType === 'chatpal') {
+    typingNotice = document.createElement('div');
+    typingNotice.className = 'chatpal-typing-notice';
+    typingNotice.textContent = '对方正在输入...';
+    msgs.appendChild(typingNotice);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  // Add typing indicator
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'chat-msg ai';
+  typingDiv.id = 'typingIndicator';
+  typingDiv.innerHTML = `
+    <div class="chat-msg-avatar" style="background:${platform.avatarBg}">${platform.emoji}</div>
+    <div class="chat-msg-bubble">
+      <div class="typing-indicator"><span></span><span></span><span></span></div>
+    </div>
+  `;
+  msgs.appendChild(typingDiv);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  // Replace with actual message after delay
+  const typeTime = 1500;
+  setTimeout(() => {
+    // 移除"对方正在输入..."
+    if (typingNotice) typingNotice.remove();
+
+    const typing = document.getElementById('typingIndicator');
+    if (typing) typing.remove();
+
+    // 修改4:chatpal 时间戳
+    if (STATE.platformType === 'chatpal') {
+      const ts = document.createElement('div');
+      ts.className = 'chat-timestamp';
+      const now = new Date();
+      ts.textContent = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      msgs.appendChild(ts);
+    }
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg ai';
+
+    let tagHtml = '';
+
+    msgDiv.innerHTML = `
+      <div class="chat-msg-avatar" style="background:${platform.avatarBg}">${platform.emoji}</div>
+      <div class="chat-msg-bubble">${tagHtml}${text}</div>
+    `;
+    msgDiv.style.opacity = '0';
+    msgs.appendChild(msgDiv);
+    requestAnimationFrame(() => {
+      msgDiv.style.transition = 'opacity 0.3s';
+      msgDiv.style.opacity = '1';
+    });
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // 记录对话
+    logChat('ai', text);
+
+    // Task 4:aihelper SVG action bar inside AI bubble
+    if (STATE.platformType === 'aihelper') {
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'ai-actions';
+      actionsDiv.innerHTML = `
+        <button class="ai-action-btn" onclick="showActionToast(this,'\u4E0D\u53EF\u7528')">
+          <svg viewBox="0 0 24 24"><path d="M7 11v9a1 1 0 0 0 1 1h2V11H7zm10-1l-4-7a1 1 0 0 0-1.8.2L10 11h7a1 1 0 0 0 1-1z"/></svg>
+          <span class="ai-action-toast">\u4E0D\u53EF\u7528</span>
+        </button>
+        <button class="ai-action-btn" onclick="showActionToast(this,'\u4E0D\u53EF\u7528')">
+          <svg viewBox="0 0 24 24"><path d="M17 13V4a1 1 0 0 0-1-1h-2v9h3zm-10 1l4 7a1 1 0 0 0 1.8-.2L14 13H7a1 1 0 0 0-1 1z"/></svg>
+          <span class="ai-action-toast">\u4E0D\u53EF\u7528</span>
+        </button>
+        <button class="ai-action-btn" onclick="showActionToast(this,'\u4E0D\u53EF\u7528')">
+          <svg viewBox="0 0 24 24"><path d="M4 4v5h5M20 20v-5h-5"/><path d="M20.5 9A9 9 0 0 0 5.6 5.6L4 7.5M3.5 15a9 9 0 0 0 14.9 3.4l1.6-1.9"/></svg>
+          <span class="ai-action-toast">\u4E0D\u53EF\u7528</span>
+        </button>
+        <button class="ai-action-btn" onclick="showActionToast(this,'\u4E0D\u53EF\u7528')">
+          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span class="ai-action-toast">\u4E0D\u53EF\u7528</span>
+        </button>
+      `;
+      msgDiv.querySelector('.chat-msg-bubble').appendChild(actionsDiv);
+    }
+
+    if (callback) callback();
+  }, typeTime);
+}
+
+function showUserMessage(text) {
+  const msgs = document.getElementById('chatMessages');
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'chat-msg user';
+  msgDiv.innerHTML = `<div class="chat-msg-bubble">${text}</div>`;
+  msgDiv.style.opacity = '0';
+  msgs.appendChild(msgDiv);
+  requestAnimationFrame(() => {
+    msgDiv.style.transition = 'opacity 0.3s';
+    msgDiv.style.opacity = '1';
+  });
+  msgs.scrollTop = msgs.scrollHeight;
+
+  // 记录对话
+  logChat('user', text);
+}
+
+function showUserOptions() {
+  const dialogue = DIALOGUES[STATE.scenarioType];
+  const round = dialogue.rounds[chatState.round];
+  const optionsDiv = document.getElementById('chatOptions');
+  const listDiv = document.getElementById('chatOptionsList');
+
+  listDiv.innerHTML = '';
+  
+  // Shuffle options
+  let tags = ['A', 'B', 'C'];
+  for (let i = tags.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tags[i], tags[j]] = [tags[j], tags[i]];
+  }
+
+  tags.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.className = 'chat-option';
+    // Remove the A/B/C letter tag from display so user doesn't see "C" first, but keep the value in the onclick
+    btn.innerHTML = `<span class="option-tag" style="display:none;">${tag}</span>${round.options[tag]}`;
+    btn.onclick = () => selectChatOption(tag);
+    listDiv.appendChild(btn);
+  });
+
+
+  optionsDiv.style.display = 'block';
+  optionsDiv.style.animation = 'slideUp 0.3s ease';
+}
+
+
+// ===== 对话流程（3轮自动流转） =====
+function selectChatOption(choice) {
+  const dialogue = DIALOGUES[STATE.scenarioType];
+  const round = dialogue.rounds[chatState.round];
+
+  // Hide options immediately
+  document.getElementById('chatOptions').style.display = 'none';
+
+  // Show user message
+  showUserMessage(round.options[choice]);
+  STATE.chatChoices.push(choice);
+
+  // After short delay, show typing indicator then AI response
+  setTimeout(() => {
+    showAIMessage(round.responses[choice], () => {
+      chatState.round++;
+      if (chatState.round >= 3) {
+        // Last round done - show finish button
+        setTimeout(() => {
+          document.getElementById('chatFinish').style.display = 'block';
+          document.getElementById('chatFinish').style.animation = 'slideUp 0.3s ease';
+        }, 500);
+      } else {
+        // Show next round options directly
+        showUserOptions();
+      }
+    });
+  }, 500);
+}
+
+// ===== 修改5:查看对话记录 =====
+// Task 5: Render chat history with full phone screen replica
+function showChatHistory() {
+  const modal = document.getElementById('chatHistoryModal');
+  const content = document.getElementById('chatHistoryContent');
+  const platform = PLATFORMS[STATE.platformType];
+  
+  // Clear previous content
+  content.innerHTML = '';
+  
+  // Create the full chat container wrapper - exact replica of chat page
+  const wrapper = document.createElement('div');
+  wrapper.className = 'chat-container ' + platform.cssClass;
+  wrapper.style.cssText = 'height:auto;max-height:75vh;min-height:250px;display:flex;flex-direction:column;overflow:hidden;';
+  
+  // Clone chat header
+  const origHeader = document.getElementById('chatHeader');
+  const headerClone = origHeader.cloneNode(true);
+  headerClone.removeAttribute('id');
+  // Disable back button in modal
+  const backBtn = headerClone.querySelector('.chat-back-btn');
+  if (backBtn) {
+    backBtn.onclick = null;
+    backBtn.removeAttribute('onclick');
+    backBtn.style.visibility = 'hidden';
+    backBtn.style.width = '0';
+    backBtn.style.overflow = 'hidden';
+    backBtn.style.padding = '0';
+    backBtn.style.margin = '0';
+    backBtn.style.flexShrink = '0';
+  }
+  wrapper.appendChild(headerClone);
+  
+  // Clone mindbuddy extras if applicable (intimacy bar, mood)
+  if (STATE.platformType === 'mindbuddy') {
+    const extras = document.getElementById('mindbuddyExtras');
+    if (extras) {
+      const extrasClone = extras.cloneNode(true);
+      extrasClone.removeAttribute('id');
+      extrasClone.style.display = 'block';
+      wrapper.appendChild(extrasClone);
+    }
+  }
+  
+  // Clone chat messages area
+  const origMessages = document.getElementById('chatMessages');
+  const messagesClone = origMessages.cloneNode(true);
+  messagesClone.removeAttribute('id');
+  messagesClone.style.overflowY = 'auto';
+  messagesClone.style.flex = '1';
+  messagesClone.style.maxHeight = '50vh';
+  // Remove typing indicators if any
+  messagesClone.querySelectorAll('#typingIndicator').forEach(el => el.remove());
+  // Remove animations for clean static view
+  messagesClone.querySelectorAll('.chat-msg').forEach(msg => {
+    msg.style.animation = 'none';
+    msg.style.opacity = '1';
+  });
+  wrapper.appendChild(messagesClone);
+  
+  // Clone platform-specific bottom bars if visible
+  if (STATE.platformType === 'chatpal') {
+    const chatpalBar = document.getElementById('chatpalBottomBar');
+    if (chatpalBar && chatpalBar.style.display !== 'none') {
+      const barClone = chatpalBar.cloneNode(true);
+      barClone.removeAttribute('id');
+      barClone.style.display = 'block';
+      wrapper.appendChild(barClone);
+    }
+  } else if (STATE.platformType === 'aihelper') {
+    const aihelperBar = document.getElementById('aihelperBottomBar');
+    if (aihelperBar && aihelperBar.style.display !== 'none') {
+      const barClone = aihelperBar.cloneNode(true);
+      barClone.removeAttribute('id');
+      barClone.style.display = 'block';
+      wrapper.appendChild(barClone);
+    }
+  }
+  
+  content.appendChild(wrapper);
+  
+  // Add close button area
+  const closeArea = document.createElement('div');
+  closeArea.style.cssText = 'padding:14px 16px;text-align:center;background:#fff;border-top:1px solid #eee;';
+  closeArea.innerHTML = '<button class="btn btn-secondary" onclick="closeChatHistory()" style="min-width:180px;">关闭</button>';
+  content.appendChild(closeArea);
+  
+  modal.classList.add('show');
+}
+
+function closeChatHistory() {
+  document.getElementById('chatHistoryModal').classList.remove('show');
+}
+
+// ===== QUESTIONNAIRE =====
+function initQuestionnaire() {
+  // Reset pagination
+  questCurrentPage = 1;
+  updateQuestProgress();
+
+  // Render Likert scales
+  ['A', 'B', 'C1', 'D', 'F'].forEach(key => {
+    const container = document.getElementById('scale' + key);
+    if (!container) return;
+    container.innerHTML = '';
+    SCALES[key].items.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = 'likert-item';
+      div.innerHTML = `<div class="likert-question">${idx + 1}. ${item}<span class="required">*</span></div><div class="likert-scale" data-name="q_${key}_${idx}"></div>`;
+      container.appendChild(div);
+      const scaleDiv = div.querySelector('.likert-scale');
+      renderLikertScale(scaleDiv, `q_${key}_${idx}`, LIKERT_LABELS);
+    });
+  });
+
+  // Render manipulation check (E)
+  const scaleE = document.getElementById('scaleE');
+  scaleE.innerHTML = '';
+  const eItems = [
+    { q: '1. 你觉得这个AI更像什么?', options: ['智能助手', '聊天伙伴', '情感陪伴者'] },
+    { q: '2. 这个AI的沟通风格偏向?', options: ['理性分析型', '轻松聊天型', '温暖陪伴型'] },
+    { q: '3. 你觉得这个AI最适合用来做什么?', options: ['解决具体问题', '日常闲聊', '情感倾诉'] }
+  ];
+  eItems.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.style.marginBottom = '16px';
+    div.innerHTML = `<div class="likert-question" style="margin-bottom:8px;">${item.q}<span class="required">*</span></div>`;
+    const rg = document.createElement('div');
+    rg.className = 'radio-group';
+    rg.dataset.name = `q_E_${idx}`;
+    item.options.forEach(opt => {
+      const label = document.createElement('label');
+      label.className = 'radio-item';
+      label.innerHTML = `<input type="radio" name="e_q${idx}" value="${opt}"> ${opt}`;
+      label.addEventListener('click', function() {
+        rg.querySelectorAll('.radio-item').forEach(r => r.classList.remove('selected'));
+        label.classList.add('selected');
+      });
+      rg.appendChild(label);
+    });
+    div.appendChild(rg);
+    scaleE.appendChild(div);
+  });
+}
+
+function validateQuestionnaire() {
+  const err = document.getElementById('quest-error');
+  // Check all Likert scales
+  for (const key of ['A', 'B', 'C1', 'D', 'F']) {
+    const count = SCALES[key].items.length;
+    for (let i = 0; i < count; i++) {
+      const sel = document.querySelector(`[data-name="q_${key}_${i}"] .likert-option.selected`);
+      if (!sel) {
+        err.style.display = 'block';
+        err.textContent = '请回答所有题目后再提交';
+        return;
+      }
+    }
+  }
+  // Check E
+  for (let i = 0; i < 3; i++) {
+    const checked = document.querySelector(`input[name="e_q${i}"]:checked`);
+    if (!checked) {
+      err.style.display = 'block';
+      err.textContent = '请回答所有操控检验题';
+      return;
+    }
+  }
+
+  err.style.display = 'none';
+
+  // Collect data
+  for (const key of ['A', 'B', 'C1', 'D', 'F']) {
+    SCALES[key].items.forEach((item, idx) => {
+      const sel = document.querySelector(`[data-name="q_${key}_${idx}"] .likert-option.selected`);
+      STATE.questionnaire[`${key}_${idx + 1}`] = sel ? parseInt(sel.dataset.value) : null;
+    });
+  }
+  for (let i = 0; i < 3; i++) {
+    const checked = document.querySelector(`input[name="e_q${i}"]:checked`);
+    STATE.questionnaire[`E_${i + 1}`] = checked ? checked.value : null;
+  }
+
+  // Save to localStorage
+  STATE.timestamp_end = new Date().toISOString();
+  localStorage.setItem('exp_data_' + STATE.participantId, JSON.stringify(STATE));
+
+  goToPage('page-complete');
+}
+
+// ===== CSV EXPORT =====
+function downloadCSV() {
+  const allData = {};
+  allData.participant_id = STATE.participantId;
+  allData.timestamp_start = STATE.timestamp;
+  allData.timestamp_end = STATE.timestamp_end || new Date().toISOString();
+  allData.platform_type = STATE.platformType;
+  allData.scenario_type = STATE.scenarioType;
+
+  // Demographics
+  Object.keys(STATE.demographics).forEach(k => {
+    const val = STATE.demographics[k];
+    allData['demo_' + k] = Array.isArray(val) ? val.join(';') : val;
+  });
+
+  // Chat choices
+  STATE.chatChoices.forEach((c, i) => {
+    allData['chat_round_' + (i+1)] = c;
+  });
+
+  // Questionnaire
+  Object.keys(STATE.questionnaire).forEach(k => {
+    allData['q_' + k] = STATE.questionnaire[k];
+  });
+
+  const headers = Object.keys(allData);
+  const values = headers.map(h => {
+    const v = allData[h];
+    if (v === null || v === undefined) return '';
+    return '"' + String(v).replace(/"/g, '""') + '"';
+  });
+
+  const csv = '\uFEFF' + headers.join(',') + '\n' + values.join(',');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `experiment_data_${STATE.participantId}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== 修改7:研究者快速通道 =====
+let researcherState = { platform: '', scenario: '' };
+
+// 研究者通道：知情同意页底部版权文字 3秒内连续点击5次触发
+(function() {
+  let _clickTimes = [];
+  document.addEventListener('DOMContentLoaded', function() {
+    const el = document.getElementById('consentCopyright');
+    if (el) {
+      el.addEventListener('click', function() {
+        const now = Date.now();
+        _clickTimes.push(now);
+        _clickTimes = _clickTimes.filter(t => now - t <= 3000);
+        if (_clickTimes.length >= 5) {
+          _clickTimes = [];
+          const pwd = prompt('请输入密码');
+          if (pwd === '111') {
+            openResearcherModal();
+          }
+        }
+      });
+    }
+  });
+})();
+
+function openResearcherModal() {
+  researcherState = { platform: '', scenario: '' };
+  document.querySelectorAll('#researcherPlatforms .researcher-grid-item').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('#researcherScenarios .researcher-grid-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('researcherStartBtn').disabled = true;
+  document.getElementById('researcherModal').classList.add('show');
+}
+
+function closeResearcherModal() {
+  document.getElementById('researcherModal').classList.remove('show');
+}
+
+function selectResearcherPlatform(platform) {
+  researcherState.platform = platform;
+  document.querySelectorAll('#researcherPlatforms .researcher-grid-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.value === platform);
+  });
+  checkResearcherReady();
+}
+
+function selectResearcherScenario(scenario) {
+  researcherState.scenario = scenario;
+  document.querySelectorAll('#researcherScenarios .researcher-grid-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.value === scenario);
+  });
+  checkResearcherReady();
+}
+
+function checkResearcherReady() {
+  document.getElementById('researcherStartBtn').disabled = !(researcherState.platform && researcherState.scenario);
+}
+
+function startResearcherMode() {
+  // 设置状态
+  STATE.platformType = researcherState.platform;
+  STATE.scenarioType = researcherState.scenario;
+  STATE.isResearcher = true;
+  STATE.participantId = 'RESEARCHER_' + Date.now();
+  STATE.demographics = { age: '0', gender: '研究者', education: '研究者', status: '研究者', ai_frequency: '每天使用', ai_products: ['研究者'], trust: '4', humanlike: '4', platform_preference: '研究者' };
+
+  // 添加全局悬浮控制台按钮（密码验证通过后挂载到body）
+  if (!document.getElementById('researcherGlobalFloat')) {
+    const floatDiv = document.createElement('div');
+    floatDiv.id = 'researcherGlobalFloat';
+    floatDiv.style.cssText = 'position:fixed;top:12px;right:12px;z-index:999999;';
+    floatDiv.innerHTML = '<button class="researcher-float-btn" id="researcherGlobalFloatBtn" style="position:relative;z-index:999999;">⚙️ 控制台</button>';
+    floatDiv.querySelector('button').addEventListener('click', function() {
+      document.getElementById('researcherModal').classList.add('show');
+    });
+    document.body.appendChild(floatDiv);
+  }
+
+  closeResearcherModal();
+  // 跳过知情同意和基本信息,直接进入过渡页
+  document.getElementById('instructionModal').style.display = 'flex';
+}
+
+// ===== 问卷分页系统 =====
+let questCurrentPage = 1;
+const QUEST_TOTAL_PAGES = 6;
+
+function updateQuestProgress() {
+  document.getElementById('questProgress').textContent = `进度：${questCurrentPage}/${QUEST_TOTAL_PAGES}`;
+  document.querySelectorAll('.quest-page').forEach(page => {
+    page.classList.remove('active');
+    if (parseInt(page.dataset.questPage) === questCurrentPage) {
+      page.classList.add('active');
+    }
+  });
+  window.scrollTo(0, 0);
+}
+
+function isCurrentQuestPageValid() {
+  const currentPage = document.querySelector(`.quest-page[data-quest-page="${questCurrentPage}"]`);
+  if (!currentPage) return false;
+  
+  // Check all required Likert scales in current page
+  const likertScales = currentPage.querySelectorAll('.likert-scale');
+  for (let scale of likertScales) {
+    if (!scale.querySelector('.likert-option.selected')) return false;
+  }
+  
+  // Check all required radio groups in current page (for scale E)
+  const radioGroups = currentPage.querySelectorAll('.radio-group[data-name^="q_E"]');
+  for (let group of radioGroups) {
+    if (!group.querySelector('input:checked')) return false;
+  }
+  
+  return true;
+}
+
+function questNextPage() {
+  if (!isCurrentQuestPageValid()) {
+    const err = document.getElementById('quest-error');
+    err.style.display = 'block';
+    err.textContent = '请回答当前部分的所有题目';
+    return;
+  }
+  document.getElementById('quest-error').style.display = 'none';
+  
+  if (questCurrentPage < QUEST_TOTAL_PAGES) {
+    questCurrentPage++;
+    updateQuestProgress();
+  }
+}
+
+function questPrevPage() {
+  if (questCurrentPage > 1) {
+    questCurrentPage--;
+    updateQuestProgress();
+  }
+}
+
+// ===== 研究者控制面板 (?test=1) =====
+function toggleResearcherDropdown() {
+  const dropdown = document.getElementById('researcherFloatDropdown');
+  dropdown.classList.toggle('show');
+}
+
+function forceJumpCondition() {
+  const platform = document.getElementById('rfd-platform').value;
+  const scenario = document.getElementById('rfd-scenario').value;
+  
+  STATE.platformType = platform;
+  STATE.scenarioType = scenario;
+  STATE.isResearcher = true;
+  STATE.participantId = 'RESEARCHER_' + Date.now();
+  STATE.demographics = { age: '0', gender: '研究者', education: '研究者', status: '研究者', ai_frequency: '每天使用', ai_products: ['研究者'], trust: '4', humanlike: '4', platform_preference: '研究者' };
+  
+  document.getElementById('researcherFloatDropdown').classList.remove('show');
+  document.getElementById('instructionModal').style.display = 'flex';
+}
+
+// ===== 页面加载时检测URL参数 =====
+document.addEventListener('DOMContentLoaded', function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('test') === '1') {
+    document.getElementById('researcherFloatPanel').style.display = 'block';
+  }
+});
+
+// ===== INIT LIKERT SCALES ON LOAD =====
+document.addEventListener('DOMContentLoaded', () => {
+  // Render initial Likert scales for demographics page
+  
+  // SDI
+  renderLikertScale(document.querySelector('[data-name="q_sdi_1"]'), 'q_sdi_1', LIKERT_LABELS);
+  renderLikertScale(document.querySelector('[data-name="q_sdi_2"]'), 'q_sdi_2', LIKERT_LABELS);
+  renderLikertScale(document.querySelector('[data-name="q_sdi_3"]'), 'q_sdi_3', LIKERT_LABELS);
+
+  const TRUST_LABELS = ['1\n完全不信任', '2\n不信任', '3\n有点不信任', '4\n中立', '5\n有点信任', '6\n信任', '7\n完全信任'];
+  const HUMANLIKE_LABELS = ['1\n完全不像', '2\n不像', '3\n有点不像', '4\n中立', '5\n有点像', '6\n像', '7\n非常像'];
+  
+  renderLikertScale(document.querySelector('[data-name="q_trust"]'), 'q_trust', TRUST_LABELS);
+  renderLikertScale(document.querySelector('[data-name="q_humanlike"]'), 'q_humanlike', HUMANLIKE_LABELS);
+
+
+  // Radio/checkbox styling
+  document.querySelectorAll('.radio-item input').forEach(input => {
+    input.addEventListener('change', function() {
+      this.closest('.radio-group').querySelectorAll('.radio-item').forEach(r => r.classList.remove('selected'));
+      if (this.checked) this.closest('.radio-item').classList.add('selected');
+    });
+  });
+  document.querySelectorAll('.checkbox-item input').forEach(input => {
+    input.addEventListener('change', function() {
+      this.closest('.checkbox-item').classList.toggle('selected', this.checked);
+    });
+  });
+});
+</script>
+
+
+<!-- Instruction Modal -->
+<div id="instructionModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:10000; justify-content:center; align-items:center;">
+  <div style="background:#fff; border-radius:16px; padding:32px 24px; max-width:400px; width:90%; text-align:center;">
+    <h3 style="margin-bottom:16px; font-size:1.3rem;">即将进入情境模拟</h3>
+    <p style="color:#636e72; font-size:0.95rem; line-height:1.6; text-align:left; margin-bottom:12px;">
+      接下来，系统将为您模拟真实的手机交互界面。
+    </p>
+    <p style="color:#636e72; font-size:0.95rem; line-height:1.6; text-align:left; margin-bottom:24px;">
+      请您充分**代入刚刚选择的困扰情境**，根据您此时最真实的内心感受，在后续的对话中选择您最想回复的选项。
+    </p>
+    <button class="btn btn-primary btn-block" onclick="startTransition()">我知道了，开始模拟</button>
+    <button class="btn btn-secondary btn-block" onclick="document.getElementById('instructionModal').style.display='none';" style="margin-top:12px;">取消，重新选择情境</button>
+  </div>
+</div>
+
+</body>
+</html>
