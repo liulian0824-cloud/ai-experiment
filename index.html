@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AI交互体验研究</title>
 <style>
 /* ===== RESET & BASE ===== */
@@ -853,21 +853,21 @@ body {
 <div id="page-consent" class="page active">
   <div class="container">
     <div class="consent-box">
-      <div class="consent-title">参与AI交互体验研究</div>
-      <div class="consent-org consent-copyright" id="consentCopyright">复旦大学新闻学院 · 新闻与传播专业硕士研究生毕业论文实验</div>
+      <div class="consent-title">欢迎参与人机交互体验实验</div>
+      <div class="consent-org consent-copyright" id="consentCopyright">复旦大学新闻学院 · 硕士学位论文实验项目</div>
       <div class="consent-text">
-        <h3>📋 研究目的</h3>
-        <p>本研究旨在探索不同平台的交互设计对人机互动体验的影响。通过模拟与AI的对话场景,了解用户在不同平台环境下的感受与体验。</p>
-        <h3>📝 实验流程</h3>
-        <p>1. 填写基本信息问卷<br>2. 阅读并选择一个情境<br>3. 与AI进行模拟对话<br>4. 填写体验反馈问卷</p>
-        <h3>🔒 您的权利</h3>
-        <p>• 您的所有数据仅用于学术研究,严格保密<br>• 您可以随时退出实验,无需说明理由<br>• 数据以匿名方式处理,不会涉及个人隐私</p>
+        <h3>🎯 体验说明</h3>
+        <p>本研究旨在了解公众在日常沟通情境下与人工智能的互动感受与交流体验。在本次实验中，您将进入一段模拟交互场景与 AI 进行简短对话，并反馈您的真实感受。</p>
+        <h3>📝 实验步骤</h3>
+        <p>1. 填写简要背景信息<br>2. 进入模拟环境，与 AI 完成 3 轮日常对话<br>3. 填写体验感受问卷<br>4. 获取专属【完成码】返回见数核对</p>
         <h3>⏱️ 预计时长</h3>
-        <p>整个实验大约需要 <strong>10-15分钟</strong>。</p>
+        <p>全程约需 <strong>5-8 分钟</strong>。选项无对错之分，请根据第一直觉作答。数据受学术伦理严格匿名保护。</p>
       </div>
-      <div class="btn-group">
-        <button class="btn btn-secondary" onclick="exitExperiment()">不同意</button>
-        <button class="btn btn-primary" onclick="goToPage('page-demographics')">同意参与</button>
+      <div style="margin-top:24px;">
+        <button class="btn btn-primary" style="width:100%; font-size:1.05rem; padding:13px;" onclick="goToPage('page-demographics')">开始体验</button>
+        <p style="text-align:center; font-size:0.78rem; color:#888; margin-top:10px; line-height:1.4;">
+          本研究遵循自愿参与原则，您有权在调研过程中的任何环节随时中止并退出作答。
+        </p>
       </div>
     </div>
   </div>
@@ -1164,20 +1164,25 @@ body {
     <div class="chat-finish" id="chatFinish" style="display:none;">
       <button class="btn btn-success btn-block" onclick="goToPage('page-questionnaire')">结束对话,进入问卷</button>
     </div>
+    
     <!-- AiHelper welcome overlay -->
-    <div class="welcome-overlay" id="aihelperWelcome" style="display:none;">
-      <div class="welcome-logo">
+    <div class="welcome-overlay" id="aihelperWelcome" style="display:none; flex-direction:column; justify-content:center; align-items:center; z-index:50;">
+      <div class="welcome-logo" style="margin-bottom:20px;">
         <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="16" r="8" stroke="#fff" stroke-width="2.5"/><path d="M20 24v6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="20" cy="34" r="2" fill="#fff"/><path d="M12 16c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.5"/></svg>
       </div>
       <div class="welcome-title">我是小灵，有什么可以帮您？</div>
       <div class="welcome-sub">为您提供专业的信息和建议</div>
-      <div class="welcome-capsules">
+      <div class="welcome-capsules" style="margin-bottom:30px;">
         <div class="welcome-capsule">💡 生活建议</div>
         <div class="welcome-capsule">📚 知识百科</div>
         <div class="welcome-capsule">💼 工作效率</div>
         <div class="welcome-capsule">🎯 目标规划</div>
       </div>
+      <button class="btn" onclick="startAihelperChat()" style="background:#fff; color:#0984e3; font-weight:bold; padding:12px 32px; border-radius:24px; border:none; box-shadow:0 4px 12px rgba(0,0,0,0.1);">开始新对话</button>
     </div>
+  </div>
+</div>
+
   </div>
 </div>
 
@@ -1299,15 +1304,28 @@ body {
           为了保证实验数据的客观性，我们在开始前向您隐瞒了部分研究细节，在此向您说明：
         </p>
         <p style="color:#636e72; font-size:0.85rem; line-height:1.6; margin-bottom:10px;">
-          本研究的真实目的是探讨<b>“不同的人工智能平台界面（如社交型、工具型、情感陪伴型）是否会影响用户的自我披露意愿”</b>。因此，您刚刚交互的 AI 回复，实际上是<b>后台统一预设的标准文本</b>，并非基于实时大模型的生成，也并非针对您个人的真实情况给出的评价。
+          本研究的真实目的是探讨<b>“AI 所搭载的不同平台属性与社交情境如何影响用户的人机互动行为”</b>。因此，您刚刚交互的 AI 回复，实际上是<b>后台统一预设的标准文本</b>，并非基于实时大模型的生成，也并非针对您个人的真实情况给出的评价。
         </p>
         <p style="color:#636e72; font-size:0.85rem; line-height:1.6;">
-          由于情境设定可能涉及到一些日常焦虑和困扰，如果您在实验结束后感到持续的情绪低落或不适，可以随时通过页面底部的邮箱联系研究人员，或寻求复旦大学心理健康教育中心的支持（电话：021-65643469）。
+          由于实验情境可能涉及部分日常焦虑与困扰，若您在作答结束后感到情绪不适，可随时通过邮箱联系研究团队（<b>liulian_0824@163.com</b>），或通过以下正规心理援助渠道寻求支持：
+          <br>• <b>12355</b>：共青团全国青少年与公众心理援助热线（日常情绪疏导与心理咨询，免区号直拨）
+          <br>• <b>400-161-9995</b>：希望24热线（全国生命危机干预与专业心理援助，24小时服务）
         </p>
       </div>
 
-      <button class="btn btn-primary" onclick="downloadCSV()" style="margin-bottom:12px;width:100%;">📥 下载我的数据记录 (供研究者测试)</button>
-      <button class="btn btn-secondary" onclick="exitExperiment()" style="width:100%;">关闭页面</button>
+      
+      <button class="btn btn-primary" id="btn-submit-data" onclick="submitDataToFeishu()" style="margin-bottom:12px;width:100%;">📤 提交数据并获取验证码</button>
+      <div id="submit-loading" style="display:none; text-align:center; color:#636e72; margin-bottom:12px;">数据提交中，请稍候...</div>
+      
+      <!-- 验证码显示区域 -->
+      <div id="completion-code-area" style="display:none; background:#ebf5ff; border:2px dashed #0984e3; border-radius:12px; padding:20px; text-align:center; margin-bottom:16px;">
+        <div style="font-size:0.9rem; color:#636e72; margin-bottom:8px;">您的专属实验完成码</div>
+        <div id="completion-code" style="font-size:2rem; font-weight:700; color:#0984e3; letter-spacing:2px; user-select:all;">EXP-XXXX</div>
+        <div style="font-size:0.8rem; color:#d63031; margin-top:8px;">请长按或双击复制上方验证码，返回见数平台填入以领取报酬</div>
+      </div>
+
+      <button class="btn btn-secondary" id="btn-close-page" onclick="exitExperiment()" style="width:100%;">关闭页面</button>
+
     </div>
 
   </div>
@@ -2005,6 +2023,7 @@ function initChat() {
   STATE.chatChoices = [];
   STATE.chatLog = [];
 
+  
   // Task 3: aihelper welcome overlay animation
   const welcomeOverlay = document.getElementById('aihelperWelcome');
   if (STATE.platformType === 'aihelper') {
@@ -2012,20 +2031,7 @@ function initChat() {
     document.getElementById('chatMessages').style.opacity = '0';
     welcomeOverlay.style.display = 'flex';
     welcomeOverlay.classList.remove('fade-out');
-    
-    // After 1.5s, fade out welcome overlay and start chat
-    setTimeout(() => {
-      welcomeOverlay.classList.add('fade-out');
-      document.getElementById('chatMessages').style.opacity = '1';
-      document.getElementById('chatMessages').style.transition = 'opacity 0.3s';
-      setTimeout(() => {
-        welcomeOverlay.style.display = 'none';
-      }, 500);
-      // Start the actual chat
-      showAIMessage(DIALOGUES[STATE.scenarioType].opening, () => {
-        showUserOptions();
-      });
-    }, 1500);
+    // 等待用户点击"开始新对话"
   } else {
     // Normal flow for other platforms
     setTimeout(() => {
@@ -2036,7 +2042,22 @@ function initChat() {
   }
 }
 
+function startAihelperChat() {
+  const welcomeOverlay = document.getElementById('aihelperWelcome');
+  welcomeOverlay.classList.add('fade-out');
+  document.getElementById('chatMessages').style.opacity = '1';
+  document.getElementById('chatMessages').style.transition = 'opacity 0.3s';
+  setTimeout(() => {
+    welcomeOverlay.style.display = 'none';
+  }, 500);
+  // Start the actual chat
+  showAIMessage(DIALOGUES[STATE.scenarioType].opening, () => {
+    showUserOptions();
+  });
+}
+
 function showAIMessage(text, callback) {
+
   const msgs = document.getElementById('chatMessages');
   const platform = PLATFORMS[STATE.platformType];
 
@@ -2407,6 +2428,77 @@ function validateQuestionnaire() {
   goToPage('page-complete');
 }
 
+
+// ===== FEISHU SUBMIT =====
+function submitDataToFeishu() {
+  const btn = document.getElementById('btn-submit-data');
+  const loading = document.getElementById('submit-loading');
+  const codeArea = document.getElementById('completion-code-area');
+  const codeSpan = document.getElementById('completion-code');
+  
+  // 填写你在 Cloudflare 部署的 Worker URL
+  const WORKER_URL = 'https://zgdxle6q02.sealosbja.site/data-collect';
+  
+  if (WORKER_URL === 'YOUR_WORKER_URL_HERE') {
+    alert("请先在代码中配置 WORKER_URL！");
+    return;
+  }
+
+  btn.style.display = 'none';
+  loading.style.display = 'block';
+
+  // 整理要提交的数据
+  const payload = {
+    participant_id: STATE.participantId,
+    timestamp_start: STATE.timestamp,
+    platform_type: STATE.platformType,
+    scenario_type: STATE.scenarioType
+  };
+
+  // 合并人口统计数据
+  Object.keys(STATE.demographics).forEach(k => {
+    payload['demo_' + k] = Array.isArray(STATE.demographics[k]) ? STATE.demographics[k].join(';') : STATE.demographics[k];
+  });
+
+  // 合并对话选项
+  STATE.chatChoices.forEach((c, i) => {
+    payload['chat_round_' + (i+1)] = c;
+  });
+
+  // 合并问卷数据
+  Object.keys(STATE.questionnaire).forEach(k => {
+    payload['q_' + k] = STATE.questionnaire[k];
+  });
+
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  .then(response => response.json())
+  .then(data => {
+    loading.style.display = 'none';
+    if (data.success) {
+      // 成功，显示验证码
+      codeSpan.textContent = data.code;
+      codeArea.style.display = 'block';
+      // 记录结束时间
+      STATE.timestamp_end = new Date().toISOString();
+      localStorage.setItem('exp_data_' + STATE.participantId, JSON.stringify(STATE));
+    } else {
+      alert("数据提交失败: " + (data.error || "未知错误"));
+      btn.style.display = 'block';
+    }
+  })
+  .catch(error => {
+    loading.style.display = 'none';
+    alert("网络请求失败，请检查网络后重试\n" + error);
+    btn.style.display = 'block';
+  });
+}
+
 // ===== CSV EXPORT =====
 function downloadCSV() {
   const allData = {};
@@ -2617,6 +2709,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ===== INIT LIKERT SCALES ON LOAD =====
 document.addEventListener('DOMContentLoaded', () => {
+
+  // 限制同设备重复填写
+  if (localStorage.getItem('ai_experiment_completed')) {
+    document.body.innerHTML = '<div style="text-align:center; padding:60px 20px; font-family:sans-serif;"><div style="font-size:4rem; margin-bottom:20px;">✅</div><h2 style="color:#2d3436; margin-bottom:10px;">感谢您的参与</h2><p style="color:#636e72; font-size:0.95rem;">您已完成本次实验。为保证研究数据的有效性，每台设备仅限作答一次。</p></div>';
+    return;
+  }
+
   // Render initial Likert scales for demographics page
   
   // SDI
