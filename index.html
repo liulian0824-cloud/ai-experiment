@@ -1297,6 +1297,21 @@ body {
       <div class="complete-title">实验完成，非常感谢！</div>
       <div class="complete-text">您已完成所有环节，您的真实反馈对我们的研究非常重要。</div>
       
+      <!-- 验证码显示区域（置顶优先展示） -->
+      <div id="completion-code-area" style="display:none; background:#ebf5ff; border:2px dashed #0984e3; border-radius:12px; padding:20px; text-align:center; margin:16px 0;">
+        <div style="font-size:0.9rem; color:#636e72; margin-bottom:8px;">您的专属实验完成码</div>
+        <div id="completion-code" style="font-size:2rem; font-weight:700; color:#0984e3; letter-spacing:2px; user-select:all;">EXP-XXXX</div>
+        <div style="font-size:0.85rem; color:#d63031; margin-top:8px; font-weight:500;">请长按或双击复制上方验证码，返回见数平台填入以领取报酬</div>
+      </div>
+      
+      <!-- 上传状态提示（自动上传） -->
+      <div id="submit-loading" style="text-align:center; color:#0984e3; font-weight:600; padding:18px 0; margin:12px 0;">
+        <div style="font-size:1.5rem; margin-bottom:6px;">⏳</div>
+        <div>数据正在上传并生成验证码，请稍候...</div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-submit-data" onclick="submitDataToFeishu()" style="display:none; margin-bottom:16px; width:100%;">重新提交数据并获取验证码</button>
+
       <!-- 事后说明 (Debriefing) -->
       <div style="background:#f8f9fa; border:1px solid #dfe6e9; border-radius:12px; padding:20px; text-align:left; margin-bottom:24px;">
         <h4 style="color:#2d3436; font-size:1rem; margin-bottom:12px;">【事后说明与事实澄清】</h4>
@@ -1311,17 +1326,6 @@ body {
           <br>• <b>12355</b>：共青团全国青少年与公众心理援助热线（日常情绪疏导与心理咨询，免区号直拨）
           <br>• <b>400-161-9995</b>：希望24热线（全国生命危机干预与专业心理援助，24小时服务）
         </p>
-      </div>
-
-      
-      <button class="btn btn-primary" id="btn-submit-data" onclick="submitDataToFeishu()" style="margin-bottom:12px;width:100%;">📤 提交数据并获取验证码</button>
-      <div id="submit-loading" style="display:none; text-align:center; color:#636e72; margin-bottom:12px;">数据提交中，请稍候...</div>
-      
-      <!-- 验证码显示区域 -->
-      <div id="completion-code-area" style="display:none; background:#ebf5ff; border:2px dashed #0984e3; border-radius:12px; padding:20px; text-align:center; margin-bottom:16px;">
-        <div style="font-size:0.9rem; color:#636e72; margin-bottom:8px;">您的专属实验完成码</div>
-        <div id="completion-code" style="font-size:2rem; font-weight:700; color:#0984e3; letter-spacing:2px; user-select:all;">EXP-XXXX</div>
-        <div style="font-size:0.8rem; color:#d63031; margin-top:8px;">请长按或双击复制上方验证码，返回见数平台填入以领取报酬</div>
       </div>
 
       <button class="btn btn-secondary" id="btn-close-page" onclick="exitExperiment()" style="width:100%;">关闭页面</button>
@@ -2426,6 +2430,7 @@ function validateQuestionnaire() {
   localStorage.setItem('exp_data_' + STATE.participantId, JSON.stringify(STATE));
 
   goToPage('page-complete');
+  submitDataToFeishu();
 }
 
 
@@ -2445,6 +2450,7 @@ function submitDataToFeishu() {
   }
 
   btn.style.display = 'none';
+  codeArea.style.display = 'none';
   loading.style.display = 'block';
 
   // 整理要提交的数据
